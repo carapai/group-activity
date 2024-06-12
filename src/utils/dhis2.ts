@@ -14,7 +14,7 @@ if (process.env.NODE_ENV === "development") {
     };
 }
 
-const api = axios.create(config);
+export const api = axios.create(config);
 
 export const getDHIS2Resource = async <T>({
     resource,
@@ -26,9 +26,8 @@ export const getDHIS2Resource = async <T>({
     includeApi?: boolean;
 }) => {
     const actualResource = includeApi ? `api/${resource}` : resource;
-    const data = await api.get<T>(actualResource, {
+    const { data } = await api.get<T>(actualResource, {
         params,
     });
-    console.log(data);
     return data;
 };

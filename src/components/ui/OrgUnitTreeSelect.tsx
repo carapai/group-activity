@@ -1,21 +1,15 @@
 import { OrgUnit } from "@/interfaces";
 import { TreeSelect } from "antd";
-import { SyntheticEvent, useState } from "react";
 
 export default function OrgUnitTreeSelect({
     organisationUnits,
+    value,
+    onChange,
 }: {
     organisationUnits: OrgUnit[];
+    value: string;
+    onChange: (newValue: string) => void;
 }) {
-    const [value, setValue] = useState<string>();
-
-    const onChange = (newValue: string) => {
-        setValue(newValue);
-    };
-
-    const onPopupScroll = (e: SyntheticEvent) => {
-        console.log("onPopupScroll", e);
-    };
     return (
         <TreeSelect
             showSearch
@@ -27,7 +21,6 @@ export default function OrgUnitTreeSelect({
             onChange={onChange}
             treeData={organisationUnits}
             treeDataSimpleMode={{ pId: "parent", id: "key" }}
-            onPopupScroll={onPopupScroll}
         />
     );
 }

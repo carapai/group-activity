@@ -11,13 +11,49 @@
 // Import Routes
 
 import { Route as rootRoute } from './routes/__root'
+import { Route as TrackerImport } from './routes/tracker'
+import { Route as EntitiesImport } from './routes/entities'
 import { Route as IndexImport } from './routes/index'
+import { Route as TrackerProgramImport } from './routes/tracker.$program'
+import { Route as EntitiesStageImport } from './routes/entities.$stage'
+import { Route as TrackerProgramInstancesImport } from './routes/tracker.$program.instances'
+import { Route as TrackerProgramFormImport } from './routes/tracker.$program.form'
 
 // Create/Update Routes
+
+const TrackerRoute = TrackerImport.update({
+  path: '/tracker',
+  getParentRoute: () => rootRoute,
+} as any)
+
+const EntitiesRoute = EntitiesImport.update({
+  path: '/entities',
+  getParentRoute: () => rootRoute,
+} as any)
 
 const IndexRoute = IndexImport.update({
   path: '/',
   getParentRoute: () => rootRoute,
+} as any)
+
+const TrackerProgramRoute = TrackerProgramImport.update({
+  path: '/$program',
+  getParentRoute: () => TrackerRoute,
+} as any)
+
+const EntitiesStageRoute = EntitiesStageImport.update({
+  path: '/$stage',
+  getParentRoute: () => EntitiesRoute,
+} as any)
+
+const TrackerProgramInstancesRoute = TrackerProgramInstancesImport.update({
+  path: '/instances',
+  getParentRoute: () => TrackerProgramRoute,
+} as any)
+
+const TrackerProgramFormRoute = TrackerProgramFormImport.update({
+  path: '/form',
+  getParentRoute: () => TrackerProgramRoute,
 } as any)
 
 // Populate the FileRoutesByPath interface
@@ -25,14 +61,118 @@ const IndexRoute = IndexImport.update({
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
     '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
       preLoaderRoute: typeof IndexImport
       parentRoute: typeof rootRoute
+    }
+    '/entities': {
+      id: '/entities'
+      path: '/entities'
+      fullPath: '/entities'
+      preLoaderRoute: typeof EntitiesImport
+      parentRoute: typeof rootRoute
+    }
+    '/tracker': {
+      id: '/tracker'
+      path: '/tracker'
+      fullPath: '/tracker'
+      preLoaderRoute: typeof TrackerImport
+      parentRoute: typeof rootRoute
+    }
+    '/entities/$stage': {
+      id: '/entities/$stage'
+      path: '/$stage'
+      fullPath: '/entities/$stage'
+      preLoaderRoute: typeof EntitiesStageImport
+      parentRoute: typeof EntitiesImport
+    }
+    '/tracker/$program': {
+      id: '/tracker/$program'
+      path: '/$program'
+      fullPath: '/tracker/$program'
+      preLoaderRoute: typeof TrackerProgramImport
+      parentRoute: typeof TrackerImport
+    }
+    '/tracker/$program/form': {
+      id: '/tracker/$program/form'
+      path: '/form'
+      fullPath: '/tracker/$program/form'
+      preLoaderRoute: typeof TrackerProgramFormImport
+      parentRoute: typeof TrackerProgramImport
+    }
+    '/tracker/$program/instances': {
+      id: '/tracker/$program/instances'
+      path: '/instances'
+      fullPath: '/tracker/$program/instances'
+      preLoaderRoute: typeof TrackerProgramInstancesImport
+      parentRoute: typeof TrackerProgramImport
     }
   }
 }
 
 // Create and export the route tree
 
-export const routeTree = rootRoute.addChildren([IndexRoute])
+export const routeTree = rootRoute.addChildren({
+  IndexRoute,
+  EntitiesRoute: EntitiesRoute.addChildren({ EntitiesStageRoute }),
+  TrackerRoute: TrackerRoute.addChildren({
+    TrackerProgramRoute: TrackerProgramRoute.addChildren({
+      TrackerProgramFormRoute,
+      TrackerProgramInstancesRoute,
+    }),
+  }),
+})
 
 /* prettier-ignore-end */
+
+/* ROUTE_MANIFEST_START
+{
+  "routes": {
+    "__root__": {
+      "filePath": "__root.tsx",
+      "children": [
+        "/",
+        "/entities",
+        "/tracker"
+      ]
+    },
+    "/": {
+      "filePath": "index.tsx"
+    },
+    "/entities": {
+      "filePath": "entities.tsx",
+      "children": [
+        "/entities/$stage"
+      ]
+    },
+    "/tracker": {
+      "filePath": "tracker.tsx",
+      "children": [
+        "/tracker/$program"
+      ]
+    },
+    "/entities/$stage": {
+      "filePath": "entities.$stage.tsx",
+      "parent": "/entities"
+    },
+    "/tracker/$program": {
+      "filePath": "tracker.$program.tsx",
+      "parent": "/tracker",
+      "children": [
+        "/tracker/$program/form",
+        "/tracker/$program/instances"
+      ]
+    },
+    "/tracker/$program/form": {
+      "filePath": "tracker.$program.form.tsx",
+      "parent": "/tracker/$program"
+    },
+    "/tracker/$program/instances": {
+      "filePath": "tracker.$program.instances.tsx",
+      "parent": "/tracker/$program"
+    }
+  }
+}
+ROUTE_MANIFEST_END */
