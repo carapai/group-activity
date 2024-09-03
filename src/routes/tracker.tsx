@@ -1,7 +1,12 @@
 import { db } from "@/db";
 import { initialQueryOptions } from "@/utils/queryOptions";
 import { useSuspenseQuery } from "@tanstack/react-query";
-import { createFileRoute, Link, Outlet } from "@tanstack/react-router";
+import {
+    createFileRoute,
+    Link,
+    Outlet,
+    useSearch,
+} from "@tanstack/react-router";
 import { useLiveQuery } from "dexie-react-hooks";
 
 import {
@@ -9,9 +14,13 @@ import {
     ResizablePanel,
     ResizablePanelGroup,
 } from "@/components/ui/resizable";
+import { z } from "zod";
 
 export const Route = createFileRoute("/tracker")({
     component: TrackerComponent,
+    validateSearch: z.object({
+        ph: z.boolean().optional(),
+    }),
     loader: ({ context: { queryClient } }) =>
         queryClient.ensureQueryData(initialQueryOptions),
 });
@@ -22,35 +31,27 @@ function TrackerComponent() {
     } = useSuspenseQuery(initialQueryOptions);
 
     const ou = useLiveQuery(() => db.currentOu.where({ id: 1 }).first());
+    const { ph } = useSearch({ from: Route.fullPath });
 
-    return (
-        <ResizablePanelGroup direction="horizontal">
-            <ResizablePanel defaultSize={10}>
-                {programs
-                    .filter(
-                        ({ id }) =>
-                            ["saYT7gxJCPm", "azl3du5TrAR"].indexOf(id) !== -1
-                    )
-                    .map(({ id, name, registration }) => {
+    if (ph === undefined || ph === false)
+        return (
+            <ResizablePanelGroup direction="horizontal">
+                <ResizablePanel defaultSize={10}>
+                    {programs.map(({ id, name, trackedEntityType }) => {
                         return (
                             <div key={id}>
                                 <Link
                                     to="/tracker/$program/instances"
-                                    activeOptions={
-                                        {
-                                            // If the route points to the root of it's parent,
-                                            // make sure it's only active if it's exact
-                                            // exact: to === '.',
-                                        }
-                                    }
                                     preload="intent"
                                     className={`block py-2 px-3 text-blue-700`}
-                                    // Make "active" links bold
                                     activeProps={{ className: `font-bold` }}
                                     params={{ program: id }}
                                     search={{
                                         ou: ou?.value ?? "",
-                                        registration,
+                                        page: 1,
+                                        pageSize: 10,
+                                        trackedEntityType:
+                                            trackedEntityType?.id,
                                     }}
                                 >
                                     {name}
@@ -58,19 +59,12 @@ function TrackerComponent() {
                             </div>
                         );
                     })}
-            </ResizablePanel>
-            <ResizableHandle withHandle />
-            <ResizablePanel defaultSize={90}>
-                <Outlet />
-            </ResizablePanel>
-        </ResizablePanelGroup>
-        // <div className={`flex-1 flex`}>
-        //     <div className={`divide-y w-56 min-w-56`}>
-
-        //     </div>
-        //     <div className={`flex-1 border-gray-200 w-[calc(100vw-56rem)]`}>
-        //         <Outlet />
-        //     </div>
-        // </div>
-    );
+                </ResizablePanel>
+                <ResizableHandle withHandle />
+                <ResizablePanel defaultSize={90}>
+                    <Outlet />
+                </ResizablePanel>
+            </ResizablePanelGroup>
+        );
+    return <Outlet />;
 }

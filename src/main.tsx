@@ -4,8 +4,9 @@ import {
     createHashHistory,
     createRouter,
 } from "@tanstack/react-router";
+import { ConfigProvider } from "antd";
+
 import ReactDOM from "react-dom/client";
-import { ThemeProvider } from "@/components/theme-provider";
 
 import "./index.css";
 import { routeTree } from "./routeTree.gen";
@@ -36,10 +37,19 @@ const rootElement = document.getElementById("root");
 if (rootElement && !rootElement.innerHTML) {
     const root = ReactDOM.createRoot(rootElement);
     root.render(
-        <ThemeProvider defaultTheme="light" storageKey="vite-ui-theme">
+        <ConfigProvider
+            theme={{
+                token: { borderRadius: 0, boxShadow: "none" },
+                components: {
+                    Table: {
+                        borderRadius: 0,
+                    },
+                },
+            }}
+        >
             <QueryClientProvider client={queryClient}>
                 <RouterProvider router={router} />
             </QueryClientProvider>
-        </ThemeProvider>
+        </ConfigProvider>,
     );
 }

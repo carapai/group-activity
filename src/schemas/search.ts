@@ -1,18 +1,18 @@
 import { z } from "zod";
-
-export const TrackerSearchSchema = z.object({
+export const ProgramSearchSchema = z.object({
+    oh: z.boolean().optional(),
     ou: z.string(),
-    registration: z.boolean(),
+    trackedEntityType: z.string(),
 });
-export const EntitySearchSchema = z.object({
-    tei: z.string().optional(),
-    program: z.string(),
-    enrollment: z.string().optional(),
+export const TrackerSearchSchema = z.object({
+    page: z.number(),
+    pageSize: z.number(),
+    th: z.boolean().optional(),
+    selectedKeys: z.string().optional(),
 });
+
 export const EventSearchSchema = z.object({
-    tei: z.string().optional(),
-    enrollment: z.string().optional(),
-    event: z.string().optional(),
+    ps: z.string().optional(),
 });
 
 export type TrackerSearch = z.infer<typeof TrackerSearchSchema>;

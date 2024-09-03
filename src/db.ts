@@ -1,13 +1,22 @@
 import Dexie, { Table } from "dexie";
 import "dexie-observable";
-import { Event, EventDisplay, Instance, OrgUnit } from "./interfaces";
+import {
+    DisplayInstance,
+    Event,
+    EventDisplay,
+    OptionGroup,
+    OrgUnit,
+} from "./interfaces";
+import { api } from "./utils/dhis2";
 
 export class TrackerDexie extends Dexie {
     organisations!: Table<OrgUnit>;
     currentOu!: Table<{ id: number; value: string }>;
-    instances!: Table<Instance>;
+    instances!: Table<Partial<DisplayInstance>>;
     currentEvent!: Table<EventDisplay>;
     event!: Table<Partial<Event>>;
+    optionGroups!: Table<OptionGroup>;
+    sessions!: Table<Partial<Event>>;
 
     constructor() {
         super("tracker");
@@ -16,13 +25,21 @@ export class TrackerDexie extends Dexie {
             currentOu: "id++,value",
             instances: "trackedEntity",
             currentEvent: "event",
+            event: "event",
+            optionGroups: "id",
+            sessions: "&event,[occurredAt+trackedEntity]",
         });
-        this.version(2).stores({ event: "event" });
     }
 }
 
 export const db = new TrackerDexie();
 
 db.on("changes", (changes) => {
-    changes.forEach((change) => console.log(change));
+    changes.forEach((change) => {
+        if (change.table === "sessions" && change.type === 2) {
+            api.post("api/tracker", {
+                events: [change.obj],
+            });
+        }
+    });
 });

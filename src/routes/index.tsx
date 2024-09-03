@@ -12,8 +12,13 @@ function Home() {
     return (
         <Navigate
             to="/tracker/$program/instances"
-            search={{ ou: data, registration: false }}
-            params={{ program: "saYT7gxJCPm" }}
+            search={{
+                ou: data,
+                page: 1,
+                pageSize: 10,
+                trackedEntityType: "jUBCsJonWQ2",
+            }}
+            params={{ program: "IXxHJADVCkb" }}
         />
     );
 }

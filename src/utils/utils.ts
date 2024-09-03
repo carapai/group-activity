@@ -1,4 +1,4 @@
-import { OrgUnit, ValueType } from "@/interfaces";
+import { Option, OrgUnit, ValueType } from "@/interfaces";
 import {
     z,
     ZodBoolean,
@@ -29,7 +29,7 @@ export function searchFilter(array: OrgUnit[], name: string) {
     }, []);
 }
 
-export const rules = {
+export const rules: Record<string, Array<Option>> = {
     "1. VSLA Group": [
         {
             code: "VSLA Methodology",
@@ -133,7 +133,7 @@ export const valueTypes: Record<
     DATETIME: z
         .string()
         .regex(
-            /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2}(?:\.\d*)?)((-(\d{2}):(\d{2})|Z)?)$/
+            /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2}(?:\.\d*)?)((-(\d{2}):(\d{2})|Z)?)$/,
         ),
     TIME: z.string().regex(/^(\d{2}):(\d{2})/),
     NUMBER: z.preprocess(Number, z.number()),

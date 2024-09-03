@@ -1,8 +1,7 @@
 import OrgUnitTreeSelect from "@/components/ui/OrgUnitTreeSelect";
 import { db } from "@/db";
-import { TrackerSearchSchema } from "@/schemas/search";
+import { ProgramSearchSchema } from "@/schemas/search";
 import { programQueryOptions } from "@/utils/queryOptions";
-import { generateUid } from "@/utils/uid";
 import {
     createFileRoute,
     Outlet,
@@ -10,24 +9,21 @@ import {
     useNavigate,
     useSearch,
 } from "@tanstack/react-router";
-import { Button } from "antd";
+import useKeyboardShortcut from "use-keyboard-shortcut";
 
 export const Route = createFileRoute("/tracker/$program")({
     component: ProgramComponent,
-    validateSearch: TrackerSearchSchema,
+    validateSearch: ProgramSearchSchema,
     loader: (opts) =>
         opts.context.queryClient.ensureQueryData(
-            programQueryOptions(opts.params.program)
+            programQueryOptions(opts.params.program),
         ),
 });
 
 function ProgramComponent() {
     const navigate = useNavigate({ from: Route.fullPath });
-    const { organisationUnits, id, registration } = useLoaderData({
-        from: Route.fullPath,
-    });
     const { organisations } = useLoaderData({ from: "/tracker" });
-    const { ou } = useSearch({ from: Route.fullPath });
+    const { ou, oh } = useSearch({ from: Route.fullPath });
 
     const transition = async (val: string) => {
         await db.currentOu.put({ id: 1, value: val });
@@ -36,41 +32,35 @@ function ProgramComponent() {
                 return {
                     ...old,
                     ou: val,
+                    selectedKeys: undefined,
                 };
             },
         });
     };
 
-    const addForm = () => {
-        navigate({
-            to: "/tracker/$program/form",
-            params: { program: id },
-            search: {
-                ou,
-                registration,
-                event: generateUid(),
-            },
-        });
-    };
-
-    const isDisabled = () =>
-        organisationUnits.filter((a) => a.id === ou).length === 0;
-
+    useKeyboardShortcut(
+        ["Shift", "H"],
+        () => navigate({ search: (s) => ({ ...s, ph: !s.ph }) }),
+        {
+            overrideSystem: false,
+            ignoreInputFields: false,
+            repeatOnHold: true,
+        },
+    );
     return (
-        <div className="p-2">
-            <div className="h-[48px] flex flex-row gap-4 items-center">
-                <OrgUnitTreeSelect
-                    organisationUnits={organisations}
-                    onChange={transition}
-                    value={ou}
-                />
-                <Button disabled={isDisabled()} onClick={() => addForm()}>
-                    Add
-                </Button>
-            </div>
+        <>
+            {(oh === undefined || oh === false) && (
+                <div className="h-[48px] flex flex-row gap-4 items-center p-2">
+                    <OrgUnitTreeSelect
+                        organisationUnits={organisations}
+                        onChange={transition}
+                        value={ou}
+                    />
+                </div>
+            )}
             <div className="h-[calc(100vh-96px)] overflow-auto">
                 <Outlet />
             </div>
-        </div>
+        </>
     );
 }

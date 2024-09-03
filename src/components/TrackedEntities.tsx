@@ -1,254 +1,218 @@
-import { Button } from "@/components/ui/button";
+import { db } from "@/db";
+import { DisplayInstance } from "@/interfaces";
+import { activityCode, api } from "@/utils/dhis2";
+import { generateUid } from "@/utils/uid";
 import {
-    DropdownMenu,
-    DropdownMenuCheckboxItem,
-    DropdownMenuContent,
-    DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Input } from "@/components/ui/input";
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from "@/components/ui/table";
-import { DisplayInstance, ProgramTrackedEntityAttribute } from "@/interfaces";
-import makeTrackerColumns from "@/lib/makeTrackerColumns";
-import { useNavigate } from "@tanstack/react-router";
-import {
-    ColumnFiltersState,
-    SortingState,
-    VisibilityState,
-    flexRender,
-    getCoreRowModel,
-    getFilteredRowModel,
-    getPaginationRowModel,
-    getSortedRowModel,
-    useReactTable,
-} from "@tanstack/react-table";
-import { fromPairs } from "lodash";
-import { ChevronDown } from "lucide-react";
-import { useEffect, useState } from "react";
-export default function TrackedEntities({
-    programTrackedEntityAttributes,
-    data,
-    program,
-    ou,
-}: {
-    programTrackedEntityAttributes: ProgramTrackedEntityAttribute[];
-    data: DisplayInstance[];
-    program: string;
-    ou: string;
-}) {
+    useLoaderData,
+    useNavigate,
+    useParams,
+    useSearch,
+} from "@tanstack/react-router";
+import type { TableProps } from "antd";
+import { Button, Modal, Table } from "antd";
+import { useState } from "react";
+import RegistrationForm from "./RegistrationForm";
+export default function TrackedEntities() {
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const { program } = useParams({ from: "/tracker/$program" });
+    const { programStages, programTrackedEntityAttributes } = useLoaderData({
+        from: "/tracker/$program",
+    });
+    const { processed, total } = useLoaderData({
+        from: "/tracker/$program/instances",
+    });
+    const {
+        page,
+        pageSize: currentPageSize,
+        selectedKeys,
+    } = useSearch({
+        from: "/tracker/$program/instances",
+    });
+    const { ou, trackedEntityType } = useSearch({
+        from: "/tracker/$program",
+    });
     const navigate = useNavigate({ from: "/tracker/$program/instances" });
-    const [sorting, setSorting] = useState<SortingState>([]);
-    const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
-    const [columnVisibility, setColumnVisibility] = useState<VisibilityState>(
-        {}
-    );
-    const [rowSelection, setRowSelection] = useState({});
-    const [columns, setColumns] = useState(() =>
-        makeTrackerColumns(
-            programTrackedEntityAttributes.map(
-                ({ trackedEntityAttribute: { id, name } }) => ({
-                    id,
-                    name,
-                })
-            )
-        )
-    );
-    const [attributesMap, setAttributesMap] = useState<Record<string, string>>(
-        () => {
-            return fromPairs(
-                programTrackedEntityAttributes.map(
-                    ({ trackedEntityAttribute: { id, name } }) => [id, name]
-                )
+    const { organisationUnits } = useLoaderData({
+        from: "/tracker/$program",
+    });
+
+    const isDisabled =
+        organisationUnits.filter((a) => a.id === ou).length === 0;
+    const columns: TableProps<DisplayInstance>["columns"] =
+        programTrackedEntityAttributes.flatMap(
+            (
+                { trackedEntityAttribute: { id, name }, displayInList },
+                index,
+            ) => {
+                if (displayInList) {
+                    if (index === 0) {
+                        return {
+                            width: 200,
+                            fixed: "left",
+                            title: name,
+                            key: id,
+                            render: (_, row) => row.attributesObject?.[id],
+                        };
+                    }
+                    return {
+                        title: name,
+                        ellipsis: true,
+                        key: id,
+                        render: (_, row) => row.attributesObject?.[id],
+                    };
+                }
+                return [];
+            },
+        );
+
+    const rowSelection = {
+        onChange: async (
+            selectedKeys: React.Key[],
+            selectedRows: DisplayInstance[],
+        ) => {
+            navigate({
+                to: "/tracker/$program/instances/$trackedEntity",
+                params: {
+                    trackedEntity: selectedRows[0].trackedEntity ?? "",
+                },
+                search: (s) => ({
+                    ...s,
+                    selectedKeys:
+                        selectedKeys.length > 0
+                            ? String(selectedKeys[0])
+                            : undefined,
+                    ps: programStages[0].id,
+                }),
+            });
+        },
+    };
+
+    const handleOk = async () => {
+        setIsModalOpen(false);
+        const search = await db.instances.get(selectedKeys);
+        if (search && search.firstEnrollment) {
+            const { firstEnrollment, attributesObject, ...trackedEntity } =
+                search;
+            const attributes = Object.entries(attributesObject ?? {}).map(
+                ([attribute, value]) => ({ attribute, value }),
+            );
+            await api.post(
+                "api/tracker",
+                {
+                    trackedEntities: [{ ...trackedEntity, attributes }],
+                },
+                { params: { async: false } },
+            );
+        } else if (search) {
+            const { attributesObject, ...trackedEntity } = search;
+            const attributes = Object.entries(attributesObject ?? {}).map(
+                ([attribute, value]) => ({ attribute, value }),
+            );
+            await api.post(
+                "api/trackedEntityInstances",
+                {
+                    trackedEntityInstances: [
+                        {
+                            ...trackedEntity,
+                            attributes,
+                            enrollments: [
+                                {
+                                    orgUnit: ou,
+                                    program,
+                                    trackedEntity: trackedEntity.trackedEntity,
+                                    enrolledAt: new Date().toISOString(),
+                                    attributes,
+                                },
+                            ],
+                        },
+                    ],
+                },
+                { params: { async: false } },
             );
         }
-    );
-    const [currentData, setData] = useState(() => [...data]);
+    };
+    const handleCancel = () => {
+        setIsModalOpen(false);
+    };
 
-    useEffect(() => {
-        setColumns(() =>
-            makeTrackerColumns(
-                programTrackedEntityAttributes.map(
-                    ({ trackedEntityAttribute: { id, name } }) => ({
-                        id,
-                        name,
-                    })
-                )
-            )
-        );
-        setAttributesMap(() =>
-            fromPairs(
-                programTrackedEntityAttributes.map(
-                    ({ trackedEntityAttribute: { id, name } }) => [id, name]
-                )
-            )
-        );
-        setData([...data]);
-    }, [ou, program]);
+    const addActivity = async () => {
+        const code = await activityCode(ou);
+        const id = generateUid();
+        db.instances.put({
+            trackedEntity: id,
+            trackedEntityType,
+            orgUnit: ou,
+            attributes: [{ attribute: "oqabsHE0ZUI", value: code }],
+            attributesObject: { oqabsHE0ZUI: code },
+        });
+        navigate({
+            to: "/tracker/$program/instances",
+            params: {
+                program,
+            },
+            search: (s) => ({
+                ...s,
+                selectedKeys: id,
+            }),
+        });
+        setIsModalOpen(() => true);
+    };
 
-    const table = useReactTable({
-        data: currentData,
-        columns,
-        onSortingChange: setSorting,
-        onColumnFiltersChange: setColumnFilters,
-        getCoreRowModel: getCoreRowModel(),
-        getPaginationRowModel: getPaginationRowModel(),
-        getSortedRowModel: getSortedRowModel(),
-        getFilteredRowModel: getFilteredRowModel(),
-        onColumnVisibilityChange: setColumnVisibility,
-        onRowSelectionChange: setRowSelection,
-        state: {
-            sorting,
-            columnFilters,
-            columnVisibility,
-            rowSelection,
-        },
-    });
     return (
-        <div className="w-full">
-            <div className="flex items-center py-4">
-                <Input
-                    placeholder="Filter emails..."
-                    value={
-                        (table
-                            .getColumn("trackedEntity")
-                            ?.getFilterValue() as string) ?? ""
+        <div className="p-2 flex flex-col gap-3">
+            <div>
+                <Button onClick={() => setIsModalOpen(() => true)}>
+                    Edit Activity
+                </Button>
+                <Button onClick={() => addActivity()} disabled={isDisabled}>
+                    Add Activity
+                </Button>
+            </div>
+            <Table
+                scroll={{ x: "max-content" }}
+                bordered
+                style={{ whiteSpace: "nowrap" }}
+                columns={columns}
+                dataSource={processed}
+                rowKey="trackedEntity"
+                rowSelection={{
+                    type: "radio",
+                    selectedRowKeys: selectedKeys ? [selectedKeys] : [],
+                    ...rowSelection,
+                }}
+                pagination={{
+                    pageSize: currentPageSize,
+                    total,
+                    current: page,
+                    onChange: (page, pageSize) =>
+                        navigate({
+                            search: (s) => {
+                                if (pageSize !== currentPageSize) {
+                                    return {
+                                        ...s,
+                                        page: 1,
+                                        pageSize,
+                                    };
+                                }
+                                return { ...s, page };
+                            },
+                        }),
+                }}
+            />
+            <Modal
+                title="Individual Beneficiaries"
+                open={isModalOpen}
+                onOk={handleOk}
+                onCancel={handleCancel}
+                width={"50%"}
+            >
+                <RegistrationForm
+                    programTrackedEntityAttributes={
+                        programTrackedEntityAttributes
                     }
-                    onChange={(event) =>
-                        table
-                            .getColumn("trackedEntity")
-                            ?.setFilterValue(event.target.value)
-                    }
-                    className="max-w-sm"
+                    program={program}
                 />
-                <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                        <Button variant="outline" className="ml-auto">
-                            Columns <ChevronDown className="ml-2 h-4 w-4" />
-                        </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent
-                        align="end"
-                        className="overflow-auto h-[700px]"
-                    >
-                        {table
-                            .getAllColumns()
-                            .filter((column) => column.getCanHide())
-                            .map((column) => {
-                                return (
-                                    <DropdownMenuCheckboxItem
-                                        key={column.id}
-                                        className="capitalize"
-                                        checked={column.getIsVisible()}
-                                        onCheckedChange={(value: any) =>
-                                            column.toggleVisibility(!!value)
-                                        }
-                                    >
-                                        {attributesMap[column.id] || column.id}
-                                    </DropdownMenuCheckboxItem>
-                                );
-                            })}
-                    </DropdownMenuContent>
-                </DropdownMenu>
-            </div>
-            <div className="rounded-md border overflow-auto">
-                <Table>
-                    <TableHeader>
-                        {table.getHeaderGroups().map((headerGroup) => (
-                            <TableRow key={headerGroup.id}>
-                                {headerGroup.headers.map((header) => {
-                                    return (
-                                        <TableHead key={header.id}>
-                                            {header.isPlaceholder
-                                                ? null
-                                                : flexRender(
-                                                      header.column.columnDef
-                                                          .header,
-                                                      header.getContext()
-                                                  )}
-                                        </TableHead>
-                                    );
-                                })}
-                            </TableRow>
-                        ))}
-                    </TableHeader>
-                    <TableBody>
-                        {table.getRowModel().rows?.length ? (
-                            table.getRowModel().rows.map((row) => (
-                                <TableRow
-                                    key={row.id}
-                                    data-state={
-                                        row.getIsSelected() && "selected"
-                                    }
-                                    onClick={() =>
-                                        navigate({
-                                            to: "/entities",
-                                            search: {
-                                                tei: row.getValue<string>(
-                                                    "trackedEntity"
-                                                ),
-                                                program: program,
-                                                enrollment:
-                                                    row.getValue<string>(
-                                                        "firstEnrollment"
-                                                    ),
-                                            },
-                                        })
-                                    }
-                                    className="cursor-pointer"
-                                >
-                                    {row.getVisibleCells().map((cell) => (
-                                        <TableCell key={cell.id}>
-                                            {flexRender(
-                                                cell.column.columnDef.cell,
-                                                cell.getContext()
-                                            )}
-                                        </TableCell>
-                                    ))}
-                                </TableRow>
-                            ))
-                        ) : (
-                            <TableRow>
-                                <TableCell
-                                    colSpan={columns.length}
-                                    className="h-24 text-center"
-                                >
-                                    No results.
-                                </TableCell>
-                            </TableRow>
-                        )}
-                    </TableBody>
-                </Table>
-            </div>
-            <div className="flex items-center justify-end space-x-2 py-4">
-                <div className="flex-1 text-sm text-muted-foreground">
-                    {table.getFilteredSelectedRowModel().rows.length} of{" "}
-                    {table.getFilteredRowModel().rows.length} row(s) selected.
-                </div>
-                <div className="space-x-2">
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => table.previousPage()}
-                        disabled={!table.getCanPreviousPage()}
-                    >
-                        Previous
-                    </Button>
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => table.nextPage()}
-                        disabled={!table.getCanNextPage()}
-                    >
-                        Next
-                    </Button>
-                </div>
-            </div>
+            </Modal>
         </div>
     );
 }

@@ -33,8 +33,8 @@ export interface Instance {
     createdBy: CreatedBy;
     updatedBy: CreatedBy;
     relationships: Relationship[];
-    attributes: Attribute[];
-    enrollments: Enrollment[];
+    attributes: Array<Partial<Attribute>>;
+    enrollments: Array<Partial<Enrollment>>;
     programOwners: ProgramOwner[];
 }
 
@@ -62,8 +62,8 @@ export interface Enrollment {
     storedBy: string;
     createdBy: CreatedBy;
     updatedBy: CreatedBy;
-    events: Event[];
-    relationships: any[];
+    events: Array<Partial<Event>>;
+    relationships: Relationship[];
     attributes: Attribute[];
     notes: any[];
 }
@@ -77,7 +77,7 @@ export interface Event {
     trackedEntity: string;
     orgUnit: string;
     orgUnitName: string;
-    relationships: any[];
+    relationships: Relationship[];
     occurredAt: string;
     scheduledAt: string;
     storedBy: string;
@@ -138,7 +138,9 @@ export interface Relationship {
 }
 
 export interface From {
-    trackedEntity: TrackedEntity;
+    trackedEntity?: Instance;
+    event?: Event;
+    enrollment?: Enrollment;
 }
 
 export interface TrackedEntity {
@@ -163,20 +165,16 @@ export interface Events {
     instances: Event[];
 }
 
-export type DisplayInstance = Omit<
-    Instance,
-    "relationships" | "attributes" | "enrollments" | "programOwners"
-> & { attributes: { [key: string]: string }; firstEnrollment: string };
+export type DisplayInstance = Partial<
+    Instance & {
+        attributesObject: { [key: string]: string };
+        firstEnrollment: string;
+    }
+>;
 
-export type EventDisplay = Omit<
-    Partial<Event>,
-    | "relationships"
-    | "dataValues"
-    | "notes"
-    | "createdBy"
-    | "updatedBy"
-    | "assignedUser"
-> & { values: { [key: string]: string } };
+export type EventDisplay = Partial<Event> & {
+    values: { [key: string]: string };
+};
 
 export type InstanceColumns =
     | "trackedEntity"
@@ -253,6 +251,7 @@ export interface TrackedEntityAttribute {
     optionSetValue: boolean;
     id: string;
     optionSet?: OptionSet;
+    multiple?: boolean;
 }
 
 export interface ProgramStage {
@@ -260,11 +259,14 @@ export interface ProgramStage {
     programStageDataElements: ProgramStageDataElement[];
     sortOrder: number;
     id: string;
+    repeatable: boolean;
 }
 
 export interface ProgramStageDataElement {
     dataElement: DataElement;
     compulsory: boolean;
+    optionSetValue: boolean;
+    optionSet: { options: Option[] };
 }
 
 export interface DataElement {
@@ -326,3 +328,12 @@ export type ValueType =
     | "IMAGE"
     | "GEOJSON"
     | "MULTI_TEXT";
+
+export interface Beneficiary {
+    trackedEntity: string;
+    CfpoFtRmK1z: string;
+    huFucxA3e5c: string;
+    HLKc2AKR9jW: string;
+    enrollment: string;
+    occurredAt?: string;
+}

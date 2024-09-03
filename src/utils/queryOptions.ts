@@ -1,20 +1,23 @@
 import { db } from "@/db";
 import {
     DisplayInstance,
+    Event,
     EventDisplay,
     Events,
     Instance,
     Instances,
+    Option,
     OptionGroup,
     OrgUnit,
     OrgUnits,
     Program,
     ProgramStage,
-    Event,
+    Relationship,
 } from "@/interfaces";
 import { queryOptions } from "@tanstack/react-query";
 import { fromPairs } from "lodash";
 import { getDHIS2Resource } from "./dhis2";
+import { Key } from "react";
 
 const fetchOrganisationUnits = async (orgUnit: string) => {
     const totalIn = await db.organisations.count();
@@ -105,11 +108,12 @@ export const initialQueryOptions = queryOptions({
                 id: string;
                 name: string;
                 registration: boolean;
+                trackedEntityType: { id: string };
             }>;
         }>({
             resource: "programs.json",
             params: {
-                fields: "id,name,registration",
+                fields: "id,name,registration,trackedEntityType",
                 paging: "false",
             },
         });
@@ -123,11 +127,10 @@ export const initialQueryOptions = queryOptions({
             },
         });
         const organisations = await fetchOrganisationUnits(
-            String(dataViewOrganisationUnits[0].key)
+            String(dataViewOrganisationUnits[0].key),
         );
-
+        await db.optionGroups.bulkPut(optionGroups);
         const unit = await db.currentOu.get({ id: 1 });
-
         return { optionGroups, organisations, programs, ou: unit?.value ?? "" };
     },
 });
@@ -155,69 +158,47 @@ export const activitiesQueryOptions = queryOptions({
 export const instancesQueryOptions = ({
     ou,
     program,
-    registration,
+    page,
+    pageSize,
 }: {
     ou: string;
     program: string;
-    registration: boolean;
+    page: number;
+    pageSize: number;
 }) => {
     return queryOptions({
-        queryKey: ["instances", ou, program],
+        queryKey: ["instances", ou, program, page, pageSize],
         queryFn: async () => {
-            if (registration) {
-                const { instances } = await getDHIS2Resource<Instances>({
-                    resource: "tracker/trackedEntities.json",
-                    params: {
-                        ouMode: "DESCENDANTS",
-                        program,
-                        orgUnit: ou,
-                        fields: "trackedEntity,trackedEntityType,createdAt,updatedAt,orgUnit,inactive,deleted,potentialDuplicate,attributes[attribute,value],enrollments[enrollment,attributes[attribute,value]]",
-                    },
-                });
-                const processed: DisplayInstance[] = instances.map(
-                    ({
-                        relationships,
-                        attributes,
-                        enrollments,
-                        programOwners,
-                        ...rest
-                    }) => ({
-                        ...rest,
-                        attributes: fromPairs(
-                            attributes.map(({ value, attribute }) => [
-                                attribute,
-                                value,
-                            ])
-                        ),
-                        firstEnrollment:
-                            enrollments.length > 0
-                                ? enrollments[0].enrollment
-                                : "",
-                    })
-                );
-                return processed;
-            } else {
-                const { instances } = await getDHIS2Resource<Events>({
-                    resource: "tracker/events.json",
-                    params: {
-                        ouMode: "DESCENDANTS",
-                        program,
-                        orgUnit: ou,
-                    },
-                });
-                const processed: EventDisplay[] = instances.map(
-                    ({ relationships, notes, dataValues, ...rest }) => ({
-                        ...rest,
-                        values: fromPairs(
-                            dataValues.map(({ value, dataElement }) => [
-                                dataElement,
-                                value,
-                            ])
-                        ),
-                    })
-                );
-                return processed;
-            }
+            const { instances, total } = await getDHIS2Resource<Instances>({
+                resource: "tracker/trackedEntities.json",
+                params: {
+                    ouMode: "DESCENDANTS",
+                    program,
+                    orgUnit: ou,
+                    page,
+                    pageSize,
+                    totalPages: "true",
+                    fields: "trackedEntity,trackedEntityType,createdAt,updatedAt,orgUnit,inactive,deleted,attributes[attribute,value],enrollments[enrollment]",
+                },
+            });
+            const processed: Array<DisplayInstance> = instances.map(
+                ({ attributes, enrollments, ...rest }) => ({
+                    ...rest,
+                    attributesObject: fromPairs(
+                        attributes
+                            .concat(
+                                enrollments.flatMap(
+                                    ({ attributes }) => attributes ?? [],
+                                ),
+                            )
+                            .map(({ value, attribute }) => [attribute, value]),
+                    ),
+                    attributes,
+                    firstEnrollment:
+                        enrollments.length > 0 ? enrollments[0].enrollment : "",
+                }),
+            );
+            return { processed, total };
         },
     });
 };
@@ -229,7 +210,7 @@ export const programQueryOptions = (program: string) =>
             return getDHIS2Resource<Program>({
                 resource: `programs/${program}.json`,
                 params: {
-                    fields: "id,name,registration,programType,selectIncidentDatesInFuture,selectEnrollmentDatesInFuture,incidentDateLabel,enrollmentDateLabel,organisationUnits[id,name],programTrackedEntityAttributes[id,name,mandatory,valueType,displayInList,sortOrder,allowFutureDate,trackedEntityAttribute[id,name,generated,pattern,unique,valueType,orgunitScope,optionSetValue,displayFormName,optionSet[options[code,name]]]],programStages[id,name,sortOrder,programStageDataElements[compulsory,dataElement[id,name,formName,optionSetValue,valueType,optionSet[options[code,name]]]]]",
+                    fields: "id,name,registration,programType,selectIncidentDatesInFuture,selectEnrollmentDatesInFuture,incidentDateLabel,enrollmentDateLabel,organisationUnits[id,name],programTrackedEntityAttributes[id,name,mandatory,valueType,displayInList,sortOrder,allowFutureDate,trackedEntityAttribute[id,name,generated,pattern,unique,valueType,orgunitScope,optionSetValue,displayFormName,optionSet[options[code,name]]]],programStages[id,name,repeatable,sortOrder,programStageDataElements[compulsory,dataElement[id,name,formName,optionSetValue,valueType,optionSet[options[code,name]]]]]",
                     paging: "false",
                 },
             });
@@ -251,7 +232,7 @@ export const entityQueryOptions = ({
             }>({
                 resource: `programs/${program}/programStages.json`,
                 params: {
-                    fields: "id,name,programStageDataElements[dataElement[id,name]]",
+                    fields: "id,name,repeatable,programStageDataElements[dataElement[id,valueType,formName,name]]",
                 },
             });
             await db.instances.clear();
@@ -260,7 +241,7 @@ export const entityQueryOptions = ({
                 const instance = await getDHIS2Resource<Instance>({
                     resource: `tracker/trackedEntities/${tei}.json`,
                     params: {
-                        fields: "*,relationships[*]",
+                        fields: "*",
                     },
                 });
                 await db.instances.put(instance);
@@ -271,18 +252,72 @@ export const entityQueryOptions = ({
     });
 };
 
+export const trackedEntitiesQueryOptions = (
+    program: string,
+    trackedEntities: Key[],
+) => {
+    return queryOptions({
+        queryKey: ["tracked-entities-by-id", program, ...trackedEntities],
+        queryFn: async () => {
+            let currentInstances: Instances = {
+                instances: [],
+                page: 1,
+                pageSize: 50,
+                total: 50,
+                pageCount: 1,
+            };
+            if (trackedEntities.length > 0 && program) {
+                const data = await getDHIS2Resource<Instances>({
+                    resource: "tracker/trackedEntities.json",
+                    params: {
+                        program,
+                        trackedEntity: trackedEntities.join(";"),
+                        fields: "*",
+                    },
+                });
+                currentInstances = data;
+            }
+            return currentInstances.instances;
+        },
+    });
+};
+
+export const trackedEntityQueryOptions = ({
+    trackedEntity,
+    program,
+}: {
+    trackedEntity: string;
+    program: string;
+}) => {
+    return queryOptions({
+        queryKey: ["tracked-entity", trackedEntity, program],
+        queryFn: async () => {
+            const instance = await getDHIS2Resource<Instance>({
+                resource: `tracker/trackedEntities/${trackedEntity}.json`,
+                params: {
+                    fields: "*",
+                    program,
+                },
+            });
+            return instance;
+        },
+    });
+};
+
 export const programStageQueryOptions = ({
     enrollment,
     programStage,
     tei,
     event,
     program,
+    session,
 }: {
     tei?: string;
     enrollment?: string;
     event?: string;
     programStage: string;
     program: string;
+    session?: string;
 }) => {
     const queryKey = [
         "events",
@@ -291,37 +326,86 @@ export const programStageQueryOptions = ({
         tei ?? "",
         enrollment ?? "",
         event ?? "",
+        session ?? "",
     ];
     return queryOptions({
         queryKey,
         queryFn: async () => {
+            let response: {
+                events: EventDisplay[];
+                sessions: Option[];
+                attendances: string[];
+            } = {
+                sessions: [],
+                events: [],
+                attendances: [],
+            };
+            if (session) {
+                const firstGroup = await db.optionGroups
+                    .where({ id: session })
+                    .first();
+
+                if (firstGroup) {
+                    response.sessions = firstGroup.options;
+                }
+            }
             if (tei && enrollment) {
                 const instance = await db.instances
                     .where({ trackedEntity: tei })
                     .first();
-                if (instance) {
-                    return instance.enrollments
-                        .filter(({ enrollment: e }) => enrollment === e)
-                        .flatMap(({ events }) =>
-                            events.map(({ dataValues, ...others }) => ({
-                                ...others,
-                                values: fromPairs(
-                                    dataValues.map(({ dataElement, value }) => [
-                                        dataElement,
-                                        value,
-                                    ])
-                                ),
-                            }))
-                        )
-                        .filter(({ programStage: ps }) => programStage === ps);
+                if (instance && instance.enrollments) {
+                    const events = instance.enrollments.flatMap((e) => {
+                        if (
+                            e.enrollment &&
+                            e.events &&
+                            enrollment === e.enrollment
+                        ) {
+                            return e.events.flatMap((event) => {
+                                if (
+                                    event.programStage &&
+                                    event.programStage === programStage
+                                ) {
+                                    if (event.dataValues) {
+                                        const values = fromPairs(
+                                            event.dataValues.map(
+                                                ({ dataElement, value }) => [
+                                                    dataElement,
+                                                    value,
+                                                ],
+                                            ),
+                                        );
+                                        return { ...event, values };
+                                    }
+
+                                    return { ...event, values: {} };
+                                }
+                                return [];
+                            });
+                        }
+                        return [];
+                    });
+                    response.events = events;
                 }
             } else if (event) {
+                console.log("Are we here now");
                 const currentEvent = await db.currentEvent
                     .where({ event })
                     .toArray();
-                return currentEvent;
+
+                response.events = currentEvent;
+                const { instances } = await getDHIS2Resource<Events>({
+                    resource: "tracker/events.json",
+                    params: {
+                        fields: "*",
+                        filter: `qgikW8oSfNe:eq:${event}`,
+                        programStage: "EVkAS8LJNbO",
+                        skipPaging: "true",
+                    },
+                });
+                db.sessions.clear();
+                db.sessions.bulkPut(instances);
             }
-            return [];
+            return response;
         },
     });
 };
@@ -351,9 +435,9 @@ export const eventsQueryOptions = ({
                         dataValues.map(({ value, dataElement }) => [
                             dataElement,
                             value,
-                        ])
+                        ]),
                     ),
-                })
+                }),
             );
             return processed;
         },
@@ -370,6 +454,26 @@ export const eventQueryOptions = ({ event }: { event: string }) => {
             }
             const eventInstance: Partial<Event> = { event };
             return eventInstance;
+        },
+    });
+};
+
+export const relationshipOptions = ({
+    relationships,
+}: {
+    relationships: Relationship[];
+}) => {
+    return queryOptions({
+        queryKey: ["rel", ...relationships.map((r) => r.relationship)],
+        queryFn: async () => {
+            // const { instances } = await getDHIS2Resource<Events>({
+            //     resource: "tracker/relationships.json",
+            //     params: {
+            //         programStage: "EVkAS8LJNbO",
+            //         skipPaging: "true",
+            //     },
+            // });
+            return relationships;
         },
     });
 };
