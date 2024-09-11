@@ -1,7 +1,7 @@
 import { QueryClient } from "@tanstack/react-query";
-import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
+// import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import { Outlet, createRootRouteWithContext } from "@tanstack/react-router";
-import { TanStackRouterDevtools } from "@tanstack/router-devtools";
+// import { TanStackRouterDevtools } from "@tanstack/router-devtools";
 
 // function RouterSpinner() {
 //     const isLoading = useRouterState({ select: (s) => s.status === "pending" });
@@ -73,8 +73,8 @@ function RootComponent() {
                 <Outlet />
             </div>
 
-            <ReactQueryDevtools buttonPosition="bottom-right" />
-            <TanStackRouterDevtools position="bottom-left" />
+            {/* <ReactQueryDevtools buttonPosition="bottom-right" />
+            <TanStackRouterDevtools position="bottom-left" /> */}
         </div>
     );
 }

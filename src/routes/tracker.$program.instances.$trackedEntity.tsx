@@ -1,18 +1,15 @@
 import ActivityDetails from "@/components/ActivityDetails";
-import { EventDisplay } from "@/interfaces";
+import Beneficiaries from "@/components/Beneficiaries";
+import TrackedEntity from "@/components/TrackedEntity";
 import { EventSearchSchema } from "@/schemas/search";
 import { trackedEntityQueryOptions } from "@/utils/queryOptions";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import {
     createFileRoute,
-    useLoaderData,
     useNavigate,
     useParams,
 } from "@tanstack/react-router";
-import { Table, Tabs } from "antd";
 
-import type { TableProps } from "antd";
-import { fromPairs, groupBy } from "lodash";
 import useKeyboardShortcut from "use-keyboard-shortcut";
 
 export const Route = createFileRoute(
@@ -30,65 +27,20 @@ export const Route = createFileRoute(
                 trackedEntity,
             }),
         ),
+    pendingComponent: () => <div>Loading...</div>,
 });
 
 function TrackedEntityComponent() {
-    const { programStages } = useLoaderData({
-        from: "/tracker/$program",
-    });
-    const { trackedEntity, program } = useParams({
+    const { program, trackedEntity } = useParams({
         from: "/tracker/$program/instances/$trackedEntity",
     });
-    const { data } = useSuspenseQuery(
-        trackedEntityQueryOptions({
-            program,
-            trackedEntity,
-        }),
-    );
+
+    useSuspenseQuery(trackedEntityQueryOptions({ program, trackedEntity }));
 
     const navigate = useNavigate({ from: Route.fullPath });
 
-    const columns: Record<string, TableProps<EventDisplay>["columns"]> =
-        fromPairs(
-            programStages.map(({ id, programStageDataElements }) => [
-                id,
-                [
-                    {
-                        dataElement: {
-                            id: "occurredAt",
-                            formName: "Event Date",
-                            name: "Event date",
-                        },
-                    },
-                    ...programStageDataElements,
-                ].map(({ dataElement: { id, formName, name } }) => ({
-                    title: formName || name,
-                    key: id,
-                    render: (_, { values, occurredAt }) => {
-                        return { ...values, occurredAt }[id];
-                    },
-                })),
-            ]),
-        );
-
-    const allData = groupBy<EventDisplay>(
-        data.enrollments.flatMap(({ events }) => {
-            if (events) {
-                return events.map((e) => ({
-                    ...e,
-                    values: e.dataValues
-                        ? fromPairs(
-                              e.dataValues.map((d) => [d.dataElement, d.value]),
-                          )
-                        : {},
-                }));
-            }
-            return [];
-        }),
-        "programStage",
-    );
     useKeyboardShortcut(
-        ["Shift", "T"],
+        ["Control", "T"],
         () => navigate({ search: (s) => ({ ...s, th: !s.th }) }),
         {
             overrideSystem: false,
@@ -98,28 +50,21 @@ function TrackedEntityComponent() {
     );
 
     if (program === "IXxHJADVCkb") return <ActivityDetails />;
-    return (
-        <div className="p-2">
-            <Tabs
-                defaultActiveKey={programStages[0].id}
-                tabPosition="top"
-                items={programStages.map(({ name, id }) => {
-                    return {
-                        label: name,
-                        key: id,
-                        children: (
-                            <div className="h-[700px] overflow-auto">
-                                <Table
-                                    columns={columns[id]}
-                                    dataSource={allData[id]}
-                                    rowKey="event"
-                                    scroll={{ x: "max-content" }}
-                                />
-                            </div>
-                        ),
-                    };
-                })}
+    if (program === "azl3du5TrAR")
+        return (
+            <TrackedEntity
+                additional={{
+                    title: "Members",
+                    component: (
+                        <Beneficiaries
+                            title="Add Members"
+                            modalTitle="Adding Members"
+                            currentIsFrom={false}
+                            relationshipType="MKS09h3wi7J"
+                        />
+                    ),
+                }}
             />
-        </div>
-    );
+        );
+    return <TrackedEntity />;
 }

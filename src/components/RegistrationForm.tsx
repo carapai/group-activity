@@ -1,12 +1,12 @@
 import { db } from "@/db";
 import { ProgramTrackedEntityAttribute } from "@/interfaces";
-import { useLiveQuery } from "dexie-react-hooks";
-import { formElements } from "./form-elements";
+import { rules } from "@/utils/utils";
 import { useSearch } from "@tanstack/react-router";
 import { Select } from "antd";
-import { useEffect, useState } from "react";
-import { rules } from "@/utils/utils";
+import { useLiveQuery } from "dexie-react-hooks";
 import { isArray } from "lodash";
+import { useEffect, useState } from "react";
+import { formElements } from "./form-elements";
 
 export default function RegistrationForm({
     programTrackedEntityAttributes,
@@ -18,7 +18,7 @@ export default function RegistrationForm({
         from: "/tracker/$program/instances",
     });
     const displayInstance = useLiveQuery(
-        () => db.instances.get(selectedKeys ? selectedKeys[0] : ""),
+        () => db.instances.get(selectedKeys),
         [selectedKeys ? selectedKeys[0] : ""],
     );
     const [currentAttributes, setCurrentAttributes] = useState<
@@ -43,7 +43,8 @@ export default function RegistrationForm({
             return e;
         });
     });
-    const onBlur = async (value: string, dataElement: string) => {};
+    // const onBlur = async (value: string, dataElement: string) => {};
+    console.log();
     const onChange = (value: string, dataElement: string) => {
         if (displayInstance) {
             db.instances.put({
@@ -84,9 +85,6 @@ export default function RegistrationForm({
 
     return (
         <div className="flex flex-col overflow-auto px-10 gap-4">
-            <pre>
-                {JSON.stringify(displayInstance?.attributesObject, null, 2)}
-            </pre>
             {currentAttributes.map(
                 ({
                     trackedEntityAttribute: {
@@ -103,7 +101,7 @@ export default function RegistrationForm({
                     return (
                         <div className="flex gap-2 items-center" key={id}>
                             <div className="w-1/3 text-wrap text-right">
-                                {`${displayFormName || name}`}({id})
+                                {`${displayFormName || name}`}
                             </div>
                             <div className="w-2/3 flex gap-2 items-center">
                                 <div>:</div>
@@ -145,7 +143,7 @@ export default function RegistrationForm({
                                             {})[id],
                                         onChange: (value) =>
                                             onChange(value, id),
-                                        onBlur: (value) => onBlur(value, id),
+                                        onBlur: () => {},
                                         optionSetValue,
                                         optionSet,
                                     })

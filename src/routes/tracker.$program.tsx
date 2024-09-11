@@ -2,11 +2,13 @@ import OrgUnitTreeSelect from "@/components/ui/OrgUnitTreeSelect";
 import { db } from "@/db";
 import { ProgramSearchSchema } from "@/schemas/search";
 import { programQueryOptions } from "@/utils/queryOptions";
+import { useSuspenseQuery } from "@tanstack/react-query";
 import {
     createFileRoute,
     Outlet,
     useLoaderData,
     useNavigate,
+    useParams,
     useSearch,
 } from "@tanstack/react-router";
 import useKeyboardShortcut from "use-keyboard-shortcut";
@@ -18,11 +20,13 @@ export const Route = createFileRoute("/tracker/$program")({
         opts.context.queryClient.ensureQueryData(
             programQueryOptions(opts.params.program),
         ),
+    pendingComponent: () => <div>Loading...</div>,
 });
 
 function ProgramComponent() {
     const navigate = useNavigate({ from: Route.fullPath });
     const { organisations } = useLoaderData({ from: "/tracker" });
+    const { program } = useParams({ from: Route.fullPath });
     const { ou, oh } = useSearch({ from: Route.fullPath });
 
     const transition = async (val: string) => {
@@ -39,7 +43,7 @@ function ProgramComponent() {
     };
 
     useKeyboardShortcut(
-        ["Shift", "H"],
+        ["Control", "H"],
         () => navigate({ search: (s) => ({ ...s, ph: !s.ph }) }),
         {
             overrideSystem: false,
@@ -47,6 +51,8 @@ function ProgramComponent() {
             repeatOnHold: true,
         },
     );
+
+    useSuspenseQuery(programQueryOptions(program));
     return (
         <>
             {(oh === undefined || oh === false) && (

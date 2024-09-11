@@ -10,17 +10,19 @@ import {
 } from "@tanstack/react-router";
 import type { TableProps } from "antd";
 import { Button, Modal, Table } from "antd";
+import { useLiveQuery } from "dexie-react-hooks";
 import { useState } from "react";
 import RegistrationForm from "./RegistrationForm";
 export default function TrackedEntities() {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const { program } = useParams({ from: "/tracker/$program" });
-    const { programStages, programTrackedEntityAttributes } = useLoaderData({
+    const { programTrackedEntityAttributes } = useLoaderData({
         from: "/tracker/$program",
     });
-    const { processed, total } = useLoaderData({
+    const { total } = useLoaderData({
         from: "/tracker/$program/instances",
     });
+    const processed = useLiveQuery(() => db.activities.toArray());
     const {
         page,
         pageSize: currentPageSize,
@@ -81,18 +83,20 @@ export default function TrackedEntities() {
                         selectedKeys.length > 0
                             ? String(selectedKeys[0])
                             : undefined,
-                    ps: programStages[0].id,
                 }),
             });
         },
     };
 
     const handleOk = async () => {
-        setIsModalOpen(false);
         const search = await db.instances.get(selectedKeys);
         if (search && search.firstEnrollment) {
-            const { firstEnrollment, attributesObject, ...trackedEntity } =
-                search;
+            const {
+                firstEnrollment,
+                enrollments,
+                attributesObject,
+                ...trackedEntity
+            } = search;
             const attributes = Object.entries(attributesObject ?? {}).map(
                 ([attribute, value]) => ({ attribute, value }),
             );
@@ -103,11 +107,25 @@ export default function TrackedEntities() {
                 },
                 { params: { async: false } },
             );
+            await db.activities.put(search);
+
+            navigate({
+                to: "/tracker/$program/instances/$trackedEntity",
+                params: {
+                    program,
+                    trackedEntity: search.trackedEntity ?? "",
+                },
+                search: (s) => ({
+                    ...s,
+                    selectedKeys: search.trackedEntity,
+                }),
+            });
         } else if (search) {
             const { attributesObject, ...trackedEntity } = search;
             const attributes = Object.entries(attributesObject ?? {}).map(
                 ([attribute, value]) => ({ attribute, value }),
             );
+            const enrollment = generateUid();
             await api.post(
                 "api/trackedEntityInstances",
                 {
@@ -117,28 +135,55 @@ export default function TrackedEntities() {
                             attributes,
                             enrollments: [
                                 {
+                                    enrollment,
                                     orgUnit: ou,
                                     program,
-                                    trackedEntity: trackedEntity.trackedEntity,
-                                    enrolledAt: new Date().toISOString(),
+                                    trackedEntityInstance:
+                                        trackedEntity.trackedEntity,
+                                    enrollmentDate: new Date().toISOString(),
+                                    incidentDate: new Date().toISOString(),
                                     attributes,
                                 },
                             ],
+                            trackedEntityInstance: trackedEntity.trackedEntity,
                         },
                     ],
                 },
                 { params: { async: false } },
             );
+
+            const currentInstance: DisplayInstance = {
+                ...trackedEntity,
+                trackedEntity: trackedEntity.trackedEntity ?? "",
+                attributes,
+                attributesObject,
+                firstEnrollment: enrollment,
+            };
+            db.activities.put(currentInstance);
+            navigate({
+                to: "/tracker/$program/instances/$trackedEntity",
+                params: {
+                    program,
+                    trackedEntity: currentInstance.trackedEntity ?? "",
+                },
+                search: (s) => ({
+                    ...s,
+                    selectedKeys: currentInstance.trackedEntity,
+                }),
+            });
         }
+
+        setIsModalOpen(false);
     };
     const handleCancel = () => {
         setIsModalOpen(false);
     };
 
     const addActivity = async () => {
+        db.instances.clear();
         const code = await activityCode(ou);
         const id = generateUid();
-        db.instances.put({
+        await db.instances.put({
             trackedEntity: id,
             trackedEntityType,
             orgUnit: ou,
@@ -158,12 +203,28 @@ export default function TrackedEntities() {
         setIsModalOpen(() => true);
     };
 
+    const edit = async (trackedEntity: DisplayInstance) => {
+        if (trackedEntity) {
+            await db.instances.clear();
+            await db.instances.put(trackedEntity);
+            navigate({
+                to: "/tracker/$program/instances/$trackedEntity",
+                params: {
+                    program,
+                    trackedEntity: trackedEntity.trackedEntity ?? "",
+                },
+                search: (s) => ({
+                    ...s,
+                    selectedKeys: trackedEntity.trackedEntity,
+                }),
+            });
+            setIsModalOpen(() => true);
+        }
+    };
+
     return (
         <div className="p-2 flex flex-col gap-3">
-            <div>
-                <Button onClick={() => setIsModalOpen(() => true)}>
-                    Edit Activity
-                </Button>
+            <div className="flex flex-row items-center justify-end">
                 <Button onClick={() => addActivity()} disabled={isDisabled}>
                     Add Activity
                 </Button>
@@ -172,7 +233,19 @@ export default function TrackedEntities() {
                 scroll={{ x: "max-content" }}
                 bordered
                 style={{ whiteSpace: "nowrap" }}
-                columns={columns}
+                columns={[
+                    ...columns,
+                    {
+                        title: "Actions",
+                        dataIndex: "actions",
+                        key: "actions",
+                        width: 80,
+                        fixed: "right",
+                        render: (_, row) => (
+                            <Button onClick={() => edit(row)}>Edit</Button>
+                        ),
+                    },
+                ]}
                 dataSource={processed}
                 rowKey="trackedEntity"
                 rowSelection={{
@@ -200,7 +273,7 @@ export default function TrackedEntities() {
                 }}
             />
             <Modal
-                title="Individual Beneficiaries"
+                title="Group activity details"
                 open={isModalOpen}
                 onOk={handleOk}
                 onCancel={handleCancel}

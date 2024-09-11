@@ -37,6 +37,7 @@ export const Route = createFileRoute("/tracker/$program/instances")({
                 pageSize,
             }),
         ),
+    pendingComponent: () => <div>Loading...</div>,
 });
 
 function InstancesComponent() {
@@ -57,7 +58,7 @@ function InstancesComponent() {
     );
 
     useKeyboardShortcut(
-        ["Shift", "O"],
+        ["Control", "O"],
         () => navigate({ search: (s) => ({ ...s, oh: !s.oh }) }),
         {
             overrideSystem: false,
@@ -68,14 +69,14 @@ function InstancesComponent() {
 
     if (th === undefined || th === false)
         return (
-            <ResizablePanelGroup direction="horizontal">
-                <ResizablePanel>
+            <ResizablePanelGroup direction="horizontal" id="left-right">
+                <ResizablePanel id="left">
                     <TrackedEntities />
                 </ResizablePanel>
 
                 {selectedKeys && <ResizableHandle withHandle />}
                 {selectedKeys && (
-                    <ResizablePanel>
+                    <ResizablePanel id="right">
                         <Outlet />
                     </ResizablePanel>
                 )}

@@ -1,5 +1,6 @@
 import { OptionSet } from "@/interfaces";
 import { Checkbox, DatePicker, Input, Radio } from "antd";
+import dayjs from "dayjs";
 import { JSX } from "react";
 type InputProps = {
     value: string;
@@ -70,33 +71,33 @@ export const formElements: Record<string, (args: InputProps) => JSX.Element> = {
             checked={value === "true"}
         />
     ),
-    // DATE: ({ onChange, value, onBlur }: InputProps) => (
-    //     <DatePicker
-    //         onChange={(e) => {
-    //             onChange(e);
-    //             onBlur(e);
-    //         }}
-    //         value={value}
-    //     />
-    // ),
-    // DATETIME: ({ onChange, value, onBlur }: InputProps) => (
-    //     <DatePicker
-    //         onChange={(e) => {
-    //             onChange(e);
-    //             onBlur(e);
-    //         }}
-    //         value={value}
-    //     />
-    // ),
-    // TIME: ({ onChange, value, onBlur }: InputProps) => (
-    //     <DatePicker
-    //         onChange={(e) => {
-    //             onChange(e);
-    //             onBlur(e);
-    //         }}
-    //         value={value}
-    //     />
-    // ),
+    DATE: ({ onChange, value, onBlur }: InputProps) => (
+        <DatePicker
+            onChange={(e) => {
+                onChange(e.format("YYYY-MM-DD"));
+                onBlur(e.format("YYYY-MM-DD"));
+            }}
+            value={dayjs(value)}
+        />
+    ),
+    DATETIME: ({ onChange, value, onBlur }: InputProps) => (
+        <DatePicker
+            onChange={(e) => {
+                onChange(e);
+                onBlur(e);
+            }}
+            value={value}
+        />
+    ),
+    TIME: ({ onChange, value, onBlur }: InputProps) => (
+        <DatePicker
+            onChange={(e) => {
+                onChange(e);
+                onBlur(e);
+            }}
+            value={value}
+        />
+    ),
     NUMBER: ({ onChange, value, onBlur }: InputProps) => (
         <Input
             size="large"

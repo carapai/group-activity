@@ -19,6 +19,14 @@ export interface Instances {
     instances: Instance[];
 }
 
+export interface Relationships {
+    page: number;
+    pageSize: number;
+    total: number;
+    pageCount: number;
+    instances: Relationship[];
+}
+
 export interface Instance {
     trackedEntity: string;
     trackedEntityType: string;
@@ -138,9 +146,9 @@ export interface Relationship {
 }
 
 export interface From {
-    trackedEntity?: Instance;
-    event?: Event;
-    enrollment?: Enrollment;
+    trackedEntity?: Partial<Instance>;
+    event?: Partial<Event>;
+    enrollment?: Partial<Enrollment>;
 }
 
 export interface TrackedEntity {
@@ -215,6 +223,10 @@ export type EventColumns =
 // | "createdBy"
 // | "updatedBy";
 
+export interface TrackedEntityType {
+    id: string;
+}
+
 export interface Program {
     name: string;
     enrollmentDateLabel: string;
@@ -227,6 +239,7 @@ export interface Program {
     organisationUnits: OrganisationUnit[];
     programStages: ProgramStage[];
     programTrackedEntityAttributes: ProgramTrackedEntityAttribute[];
+    trackedEntityType: TrackedEntityType;
 }
 
 export interface ProgramTrackedEntityAttribute {
@@ -336,4 +349,8 @@ export interface Beneficiary {
     HLKc2AKR9jW: string;
     enrollment: string;
     occurredAt?: string;
+}
+
+export interface SearchCriteria {
+    [key: string]: string;
 }
