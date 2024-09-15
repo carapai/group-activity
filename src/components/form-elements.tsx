@@ -2,6 +2,7 @@ import { OptionSet } from "@/interfaces";
 import { Checkbox, DatePicker, Input, Radio } from "antd";
 import dayjs from "dayjs";
 import { JSX } from "react";
+import DOBComponent from "./DOBComponent";
 type InputProps = {
     value: string;
     onChange: (value: string) => void;
@@ -98,6 +99,17 @@ export const formElements: Record<string, (args: InputProps) => JSX.Element> = {
             value={value}
         />
     ),
+    AGE: ({ onChange, value, onBlur }: InputProps) => (
+        <DOBComponent
+            onChange={(e) => {
+                if (e) {
+                    onChange(e.format("YYYY-MM-DD"));
+                    onBlur(e.format("YYYY-MM-DD"));
+                }
+            }}
+            value={dayjs(value)}
+        />
+    ),
     NUMBER: ({ onChange, value, onBlur }: InputProps) => (
         <Input
             size="large"
@@ -187,14 +199,6 @@ export const formElements: Record<string, (args: InputProps) => JSX.Element> = {
         />
     ),
     REFERENCE: ({ onChange, value, onBlur }: InputProps) => (
-        <Input
-            size="large"
-            value={value}
-            onChange={(e) => onChange(e.target.value)}
-            onBlur={(e) => onBlur(e.target.value)}
-        />
-    ),
-    AGE: ({ onChange, value, onBlur }: InputProps) => (
         <Input
             size="large"
             value={value}

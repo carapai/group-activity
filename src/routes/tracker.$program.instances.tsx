@@ -14,7 +14,10 @@ import {
     useNavigate,
     useSearch,
 } from "@tanstack/react-router";
+import { memo, useMemo } from "react";
 import useKeyboardShortcut from "use-keyboard-shortcut";
+
+const MemoizedTrackedEntities = memo(TrackedEntities);
 
 export const Route = createFileRoute("/tracker/$program/instances")({
     component: InstancesComponent,
@@ -41,21 +44,25 @@ export const Route = createFileRoute("/tracker/$program/instances")({
 });
 
 function InstancesComponent() {
-    const { id } = useLoaderData({
+    const program = useLoaderData({
         from: "/tracker/$program",
     });
     const { ou, page, pageSize, th, selectedKeys } = useSearch({
         from: "/tracker/$program/instances",
     });
     const navigate = useNavigate({ from: "/tracker/$program" });
-    useSuspenseQuery(
-        instancesQueryOptions({
-            program: id,
-            ou,
-            page,
-            pageSize,
-        }),
+
+    const queryOptions = useMemo(
+        () =>
+            instancesQueryOptions({
+                program: program.id,
+                ou,
+                page,
+                pageSize,
+            }),
+        [program.id, ou, page, pageSize],
     );
+    useSuspenseQuery(queryOptions);
 
     useKeyboardShortcut(
         ["Control", "O"],
@@ -71,7 +78,7 @@ function InstancesComponent() {
         return (
             <ResizablePanelGroup direction="horizontal" id="left-right">
                 <ResizablePanel id="left">
-                    <TrackedEntities />
+                    <MemoizedTrackedEntities program={program} />
                 </ResizablePanel>
 
                 {selectedKeys && <ResizableHandle withHandle />}

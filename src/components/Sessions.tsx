@@ -1,18 +1,18 @@
 import { DisplayInstance, EventDisplay } from "@/interfaces";
 import { api } from "@/utils/dhis2";
 import { generateUid } from "@/utils/uid";
-import { useSuspenseQuery } from "@tanstack/react-query";
 import { useParams } from "@tanstack/react-router";
-import { Button, Checkbox, DatePicker, Modal, Table, Tabs } from "antd";
+import { Button, Checkbox, DatePicker, Modal, Space, Table } from "antd";
 
 import type { DatePickerProps, TableProps } from "antd";
 
 import { db } from "@/db";
-import { availableSessionsQueryOptions } from "@/utils/queryOptions";
+import { sessions } from "@/utils/queryOptions";
 import dayjs from "dayjs";
 import { useLiveQuery } from "dexie-react-hooks";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { columns } from "./columns";
+import Dropdown from "./Dropdown";
 
 const removeSession = async (
     sessionEvent: EventDisplay,
@@ -95,7 +95,11 @@ const addSession = async (
             enrollment: attendee.firstEnrollment,
             orgUnit: attendee.orgUnit,
             occurredAt: sessionDateEvent.occurredAt,
-            programStage: "EVkAS8LJNbO",
+            programStage:
+                attendee.program === "lMC8XN5Lanc"
+                    ? "fTCSYlAqD2S"
+                    : "EVkAS8LJNbO",
+            program: attendee.program,
             dataValues: [{ dataElement: "ygHFm67aRqZ", value: session }],
             values: { sessionDateEvent: sessionDateEvent.event ?? "" },
         };
@@ -112,20 +116,38 @@ function Attendance({
     sessionDateEvent: EventDisplay;
     attendee: DisplayInstance;
 }) {
-    const attendance = useLiveQuery(
+    const allAttendeeSessions = useLiveQuery(
         () =>
             db.sessions
                 .where({
                     trackedEntity: attendee.trackedEntity,
                 })
-                .first(),
+                .toArray(),
         [session, sessionDateEvent.event, attendee.trackedEntity],
     );
 
-    const attendedSessions =
-        attendance?.dataValues
-            ?.find((a) => a.dataElement === "ygHFm67aRqZ")
-            ?.value?.split(",") ?? [];
+    const [attendedSessions, setAttendedSessions] = useState<string[]>([]);
+    const [attendance, setAttendance] = useState<EventDisplay | undefined>(
+        undefined,
+    );
+
+    useEffect(() => {
+        if (allAttendeeSessions) {
+            const attendedSession = allAttendeeSessions.find(
+                ({ values }) =>
+                    values.sessionDateEvent === sessionDateEvent.event,
+            );
+            if (attendedSession) {
+                setAttendedSessions(
+                    () =>
+                        attendedSession.dataValues
+                            ?.find((a) => a.dataElement === "ygHFm67aRqZ")
+                            ?.value?.split(",") ?? [],
+                );
+                setAttendance(() => attendedSession);
+            }
+        }
+    }, [allAttendeeSessions]);
 
     const toggleSession = async (add: boolean) => {
         if (add) {
@@ -182,9 +204,6 @@ export default function Sessions() {
     const validSessions = instance?.attributes?.find(
         (a) => a.attribute === "mWyp85xIzXR",
     );
-    const { data } = useSuspenseQuery(
-        availableSessionsQueryOptions(validSessions?.value ?? ""),
-    );
 
     const [isModalOpen, setIsModalOpen] = useState(false);
     const disabledDate: DatePickerProps["disabledDate"] = (current) => {
@@ -194,8 +213,14 @@ export default function Sessions() {
     const [occurredAt, setOccurredAt] = useState<dayjs.Dayjs | undefined>(
         undefined,
     );
+    const [selectedSessions, setSelectedSessions] = useState<string>("");
 
     const sessionColumns: TableProps<EventDisplay>["columns"] = [
+        {
+            title: "Event",
+            dataIndex: "event",
+            key: "event",
+        },
         {
             title: "Activity Date",
             dataIndex: "occurredAt",
@@ -205,40 +230,33 @@ export default function Sessions() {
     ];
 
     const expandedRowRender = (record: EventDisplay) => {
+        const others =
+            record.dataValues
+                ?.find((a) => a.dataElement === "ygHFm67aRqZ")
+                ?.value?.split(",") ?? [];
         return (
-            <Tabs
-                items={validSessions?.value?.split(",").map((s) => {
-                    const others = data[s] ?? [];
-                    return {
-                        label: s,
-                        key: s,
-                        children: (
-                            <Table
-                                columns={columns?.concat(
-                                    others.map((a) => ({
-                                        title: a.name,
-                                        dataIndex: a.code,
-                                        key: a.id,
-                                        align: "center",
-                                        render: (_, row) => {
-                                            return (
-                                                <Attendance
-                                                    session={a.code}
-                                                    sessionDateEvent={record}
-                                                    attendee={row}
-                                                />
-                                            );
-                                        },
-                                    })),
-                                )}
-                                dataSource={participants}
-                                rowKey="trackedEntity"
-                                pagination={false}
-                                bordered
-                            />
-                        ),
-                    };
-                })}
+            <Table
+                columns={columns?.concat(
+                    others.map((a) => ({
+                        title: a,
+                        dataIndex: a,
+                        key: a,
+                        align: "center",
+                        render: (_, row) => {
+                            return (
+                                <Attendance
+                                    session={a}
+                                    sessionDateEvent={record}
+                                    attendee={row}
+                                />
+                            );
+                        },
+                    })),
+                )}
+                dataSource={participants}
+                rowKey="trackedEntity"
+                pagination={false}
+                bordered
             />
         );
     };
@@ -252,6 +270,9 @@ export default function Sessions() {
             trackedEntity: trackedEntity,
             orgUnit: instance?.orgUnit,
             enrollment: instance?.firstEnrollment,
+            dataValues: [
+                { dataElement: "ygHFm67aRqZ", value: selectedSessions },
+            ],
         };
         await api.post(
             "api/tracker",
@@ -270,6 +291,8 @@ export default function Sessions() {
             }),
         };
         db.instances.put(update);
+        setSelectedSessions(() => "");
+        setOccurredAt(() => undefined);
         setIsModalOpen(() => false);
     };
 
@@ -278,7 +301,7 @@ export default function Sessions() {
     };
 
     return (
-        <div className="h-[700px] overflow-auto flex flex-col gap-2">
+        <div className="overflow-auto flex flex-col gap-2">
             <div>
                 <Button onClick={() => setIsModalOpen(() => true)}>
                     Add Session
@@ -289,7 +312,7 @@ export default function Sessions() {
                 dataSource={activityDates}
                 rowKey="event"
                 pagination={false}
-                expandable={{ expandedRowRender }}
+                expandable={{ expandedRowRender, indentSize: 0 }}
                 scroll={{ x: "max-content" }}
             />
 
@@ -298,25 +321,39 @@ export default function Sessions() {
                 open={isModalOpen}
                 onOk={handleOk}
                 onCancel={handleCancel}
-                width={400}
-                footer={
-                    <div className="flex flex-row gap-3 w-full">
-                        <Button onClick={handleCancel}>Cancel</Button>
-                        <Button type="primary" onClick={handleOk}>
-                            OK
-                        </Button>
-                    </div>
-                }
+                width="30%"
+                okButtonProps={{ disabled: !occurredAt || !selectedSessions }}
             >
-                <div className="py-3">
-                    <DatePicker
-                        format="YYYY-MM-DD"
-                        disabledDate={disabledDate}
-                        className="w-full"
-                        value={occurredAt}
-                        onChange={(date) => setOccurredAt(date)}
-                    />
-                </div>
+                <Space direction="vertical" style={{ width: "100%" }}>
+                    <Space direction="vertical">
+                        <span>Activity Date</span>
+                        <DatePicker
+                            format="YYYY-MM-DD"
+                            disabledDate={disabledDate}
+                            className="w-full"
+                            value={occurredAt}
+                            onChange={(date) => setOccurredAt(date)}
+                        />
+                    </Space>
+                    <Space
+                        direction="vertical"
+                        style={{ backgroundColor: "yellow", width: "100%" }}
+                    >
+                        <span>Sessions</span>
+                        <Dropdown
+                            multiple
+                            onChange={(value) =>
+                                setSelectedSessions(() => value)
+                            }
+                            search={
+                                validSessions?.value
+                                    ?.split(",")
+                                    .map((s) => sessions[s]) ?? []
+                            }
+                            value={selectedSessions}
+                        />
+                    </Space>
+                </Space>
             </Modal>
         </div>
     );

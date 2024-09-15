@@ -32,7 +32,10 @@ export const getDHIS2Resource = async <T>({
     return data;
 };
 
-export async function activityCode(orgUnit: string) {
+export async function generateCode(
+    trackedEntityAttribute: string,
+    orgUnit: string,
+) {
     const {
         parent: { code },
     } = await getDHIS2Resource<{ parent: { code: string } }>({
@@ -50,7 +53,7 @@ export async function activityCode(orgUnit: string) {
         created: string;
         expiryDate: string;
     }>({
-        resource: "trackedEntityAttributes/oqabsHE0ZUI/generate.json",
+        resource: `trackedEntityAttributes/${trackedEntityAttribute}/generate.json`,
         params: {
             ORG_UNIT_CODE: code,
         },

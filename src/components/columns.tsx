@@ -7,7 +7,10 @@ export const columns: TableProps<DisplayInstance>["columns"] = [
         dataIndex: "HLKc2AKR9jW",
         key: "HLKc2AKR9jW",
         render: (_, record) => {
-            return record.attributesObject?.["HLKc2AKR9jW"];
+            return (
+                record.attributesObject?.["HLKc2AKR9jW"] ||
+                record.attributesObject?.["X4pNSt9UzOw"]
+            );
         },
     },
     {
@@ -16,14 +19,6 @@ export const columns: TableProps<DisplayInstance>["columns"] = [
         key: "huFucxA3e5c",
         render: (_, record) => {
             return record.attributesObject?.["huFucxA3e5c"];
-        },
-    },
-    {
-        title: "Beneficiary Type",
-        dataIndex: "l4jlzkYsUoR",
-        key: "l4jlzkYsUoR",
-        render: (_, record) => {
-            return record.attributesObject?.["l4jlzkYsUoR"];
         },
     },
     {

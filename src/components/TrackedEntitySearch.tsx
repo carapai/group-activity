@@ -180,6 +180,7 @@ export default function TrackedEntitySearch({
         searchCriteria,
         tableParams.pagination.pageSize,
         tableParams.pagination.current,
+        program,
     ]);
 
     const rowSelection: TableRowSelection<DisplayInstance> = {

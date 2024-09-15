@@ -47,9 +47,10 @@ const fetchOrganisationUnits = async (orgUnit: string) => {
             const data = await getDHIS2Resource<OrgUnits | OrgUnit>({
                 resource: `organisationUnits/${orgUnit}.json`,
                 params: {
-                    fields: "id~rename(key),name~rename(title),leaf~rename(isLeaf),parent,path",
+                    fields: "id~rename(key),name~rename(title),leaf~rename(isLeaf),parent",
                     page: String(page),
                     includeDescendants: "true",
+                    pageSize: "500",
                 },
             });
 
@@ -223,13 +224,14 @@ export const programQueryOptions = (program: string) =>
     queryOptions({
         queryKey: ["programs", program],
         queryFn: async () => {
-            return getDHIS2Resource<Program>({
+            const currentProgram = await getDHIS2Resource<Program>({
                 resource: `programs/${program}.json`,
                 params: {
                     fields: "id,name,registration,programType,selectIncidentDatesInFuture,selectEnrollmentDatesInFuture,incidentDateLabel,enrollmentDateLabel,trackedEntityType[id],organisationUnits[id,name],programTrackedEntityAttributes[id,name,mandatory,valueType,displayInList,sortOrder,allowFutureDate,trackedEntityAttribute[id,name,generated,pattern,unique,valueType,orgunitScope,optionSetValue,displayFormName,optionSet[options[code,name]]]],programStages[id,name,repeatable,sortOrder,programStageDataElements[compulsory,dataElement[id,name,formName,optionSetValue,valueType,optionSet[options[code,name]]]]]",
                     paging: "false",
                 },
             });
+            return currentProgram;
         },
     });
 
@@ -274,7 +276,6 @@ export const trackedEntityQueryOptions = ({
     trackedEntity: string;
     program: string;
 }) => {
-    console.log("tracked-entity", trackedEntity, program);
     return queryOptions({
         queryKey: ["tracked-entity", trackedEntity, program],
         queryFn: async () => {
@@ -309,11 +310,12 @@ export const trackedEntityQueryOptions = ({
                     return [];
                 },
             );
+
             const relationships = await getDHIS2Resource<Relationships>({
                 resource: "tracker/relationships.json",
                 params: {
                     trackedEntity,
-                    fields: "relationship,relationshipName,relationshipType,from[trackedEntity[trackedEntity,trackedEntityType,orgUnit,attributes[*],enrollments[enrollment]]]",
+                    fields: "relationship,relationshipName,relationshipType,from[trackedEntity[trackedEntity,trackedEntityType,orgUnit,attributes[*],enrollments[enrollment,program]]]",
                 },
             });
 
@@ -333,11 +335,12 @@ export const trackedEntityQueryOptions = ({
                                 }, {}),
                             firstEnrollment:
                                 from.trackedEntity.enrollments?.[0].enrollment,
+                            program:
+                                from.trackedEntity.enrollments?.[0].program,
                         };
                     }
                     return [];
                 });
-
             const allActivityDates = await Promise.all(
                 allActivityDateEvents.map((event) => {
                     return getDHIS2Resource<Relationships>({

@@ -28,7 +28,6 @@ function ProgramComponent() {
     const { organisations } = useLoaderData({ from: "/tracker" });
     const { program } = useParams({ from: Route.fullPath });
     const { ou, oh } = useSearch({ from: Route.fullPath });
-
     const transition = async (val: string) => {
         await db.currentOu.put({ id: 1, value: val });
         navigate({
@@ -51,8 +50,8 @@ function ProgramComponent() {
             repeatOnHold: true,
         },
     );
-
     useSuspenseQuery(programQueryOptions(program));
+
     return (
         <>
             {(oh === undefined || oh === false) && (

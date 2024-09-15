@@ -21,8 +21,7 @@ const router = createRouter({
     context: {
         queryClient,
     },
-    defaultPreload: "intent",
-    defaultPreloadStaleTime: 0,
+    defaultPreload: false,
     history,
 });
 

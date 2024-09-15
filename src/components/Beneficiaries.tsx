@@ -17,12 +17,6 @@ export default function Beneficiaries({
     const participants = useLiveQuery(() => db.participants.toArray());
     return (
         <div className="h-[700px] overflow-auto flex flex-col gap-2">
-            <BeneficiaryList
-                title={title}
-                modalTitle={modalTitle}
-                relationshipType={relationshipType}
-                currentIsFrom={currentIsFrom}
-            />
             <Table
                 columns={columns}
                 dataSource={participants}
@@ -30,6 +24,16 @@ export default function Beneficiaries({
                 pagination={false}
                 scroll={{ x: "max-content" }}
                 bordered
+                footer={() => (
+                    <div className="flex flex-row justify-end items-center">
+                        <BeneficiaryList
+                            title={title}
+                            modalTitle={modalTitle}
+                            relationshipType={relationshipType}
+                            currentIsFrom={currentIsFrom}
+                        />
+                    </div>
+                )}
             />
         </div>
     );

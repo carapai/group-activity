@@ -1,4 +1,5 @@
 import type { TreeDataNode } from "antd";
+import { IndexableType, Table } from "dexie";
 
 export interface OrgUnit extends TreeDataNode {
     parent: { id: string } | string;
@@ -177,6 +178,7 @@ export type DisplayInstance = Partial<
     Instance & {
         attributesObject: { [key: string]: string };
         firstEnrollment: string;
+        program: string;
     }
 >;
 
@@ -219,9 +221,6 @@ export type EventColumns =
     | "attributeCategoryOptions"
     | "completedBy"
     | "completedAt";
-// | "assignedUser";
-// | "createdBy"
-// | "updatedBy";
 
 export interface TrackedEntityType {
     id: string;
@@ -354,3 +353,10 @@ export interface Beneficiary {
 export interface SearchCriteria {
     [key: string]: string;
 }
+export type InstanceGenerator = {
+    table: Table<Partial<DisplayInstance>, IndexableType>;
+    trackedEntityType: string;
+    ou: string;
+    programTrackedEntityAttributes: ProgramTrackedEntityAttribute[];
+    defaultValues?: Record<string, string>;
+};

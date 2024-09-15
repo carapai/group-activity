@@ -42,7 +42,6 @@ function TrackerComponent() {
                             <div key={id}>
                                 <Link
                                     to="/tracker/$program/instances"
-                                    preload="intent"
                                     className={`block py-2 px-3 text-blue-700`}
                                     activeProps={{ className: `font-bold` }}
                                     params={{ program: id }}

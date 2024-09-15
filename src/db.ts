@@ -6,6 +6,7 @@ import {
     EventDisplay,
     OptionGroup,
     OrgUnit,
+    Program,
     Relationship,
 } from "./interfaces";
 import { api } from "./utils/dhis2";
@@ -19,9 +20,11 @@ export class TrackerDexie extends Dexie {
     sessions!: Table<EventDisplay>;
     participants!: Table<DisplayInstance>;
     activities!: Table<DisplayInstance>;
+    indirectBeneficiaries!: Table<DisplayInstance>;
+    programs!: Table<Program>;
     constructor() {
         super("tracker");
-        this.version(3).stores({
+        this.version(5).stores({
             organisations: "value,key,title",
             currentOu: "id++,value",
             instances: "trackedEntity",
@@ -32,6 +35,8 @@ export class TrackerDexie extends Dexie {
                 "[event+trackedEntity+values.sessionDateEvent],event,trackedEntity,values.sessionDateEvent",
             participants: "trackedEntity",
             activities: "trackedEntity",
+            indirectBeneficiaries: "trackedEntity",
+            programs: "id",
         });
     }
 }

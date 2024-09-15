@@ -12,8 +12,8 @@ export default function ActivityDetails() {
                         key: "aTZwDRoJnxj",
                         children: (
                             <Beneficiaries
-                                title="Add Beneficiary"
-                                modalTitle="Adding Beneficiaries"
+                                title="Select Direct Beneficiaries"
+                                modalTitle="Beneficiary List"
                                 currentIsFrom={false}
                                 relationshipType="jtpmu5rCeer"
                             />

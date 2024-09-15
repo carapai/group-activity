@@ -1,4 +1,11 @@
-import { Option, OrgUnit, ValueType } from "@/interfaces";
+import {
+    DisplayInstance,
+    InstanceGenerator,
+    Option,
+    OrgUnit,
+    ValueType,
+} from "@/interfaces";
+import pluralize from "pluralize";
 import {
     z,
     ZodBoolean,
@@ -7,6 +14,8 @@ import {
     ZodNumber,
     ZodString,
 } from "zod";
+import { generateCode } from "./dhis2";
+import { generateUid } from "./uid";
 const hasSearchTerm = (title: string, name: string) => {
     return title.toLowerCase().includes(name.toLowerCase());
 };
@@ -163,3 +172,61 @@ export const getZodValidator = (type: ValueType, required: boolean) => {
     }
     return currentZodValidator.optional();
 };
+
+export function clean(input: string) {
+    const cleanedString = input.replace(/[0-9.]/g, "");
+    return cleanedString.trim();
+}
+
+export function cleanAndSingularize(input: string): string {
+    // Remove all numbers and periods
+    const cleanedString = input.replace(/[0-9.]/g, "");
+
+    // Trim any leading or trailing whitespace
+    const trimmedString = cleanedString.trim();
+
+    // Singularize the string
+    const singularizedString = pluralize.singular(trimmedString);
+
+    return singularizedString;
+}
+
+export async function generateInstance({
+    table,
+    trackedEntityType,
+    ou,
+    programTrackedEntityAttributes,
+    defaultValues = {},
+}: InstanceGenerator) {
+    await table.clear();
+    const id = generateUid();
+    let trackedEntity: DisplayInstance = {
+        trackedEntity: id,
+        trackedEntityType,
+        orgUnit: ou,
+        attributesObject: defaultValues,
+        attributes: [],
+    };
+    for (const {
+        trackedEntityAttribute: { generated, id },
+    } of programTrackedEntityAttributes) {
+        if (generated) {
+            const code = await generateCode(id, ou);
+            trackedEntity = {
+                ...trackedEntity,
+                attributes: [
+                    ...(trackedEntity.attributes ?? []),
+                    {
+                        attribute: id,
+                        value: code,
+                    },
+                ],
+                attributesObject: {
+                    ...trackedEntity.attributesObject,
+                    [id]: code,
+                },
+            };
+        }
+    }
+    await table.put(trackedEntity);
+}
