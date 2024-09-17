@@ -51,6 +51,7 @@ const addSession = async (
     sessionDateEvent: EventDisplay,
     attendee: DisplayInstance,
     sessionEvent?: EventDisplay,
+    groupType?: string,
 ) => {
     if (sessionEvent?.event) {
         const sessions = sessionEvent.dataValues?.filter(
@@ -100,7 +101,13 @@ const addSession = async (
                     ? "fTCSYlAqD2S"
                     : "EVkAS8LJNbO",
             program: attendee.program,
-            dataValues: [{ dataElement: "ygHFm67aRqZ", value: session }],
+            dataValues: [
+                { dataElement: "ygHFm67aRqZ", value: session },
+                {
+                    dataElement: "qgikW8oSfNe",
+                    value: groupType,
+                },
+            ],
             values: { sessionDateEvent: sessionDateEvent.event ?? "" },
         };
         await db.sessions.put(newSession);
@@ -111,10 +118,12 @@ function Attendance({
     session,
     attendee,
     sessionDateEvent,
+    groupType,
 }: {
     session: string;
     sessionDateEvent: EventDisplay;
     attendee: DisplayInstance;
+    groupType?: string;
 }) {
     const allAttendeeSessions = useLiveQuery(
         () =>
@@ -151,7 +160,13 @@ function Attendance({
 
     const toggleSession = async (add: boolean) => {
         if (add) {
-            await addSession(session, sessionDateEvent, attendee, attendance);
+            await addSession(
+                session,
+                sessionDateEvent,
+                attendee,
+                attendance,
+                groupType,
+            );
         } else if (attendance && !add) {
             await removeSession(attendance, sessionDateEvent, session);
         }
@@ -205,6 +220,8 @@ export default function Sessions() {
         (a) => a.attribute === "mWyp85xIzXR",
     );
 
+    const groupType = instance?.attributesObject?.["bFnIjGJpf9t"];
+
     const [isModalOpen, setIsModalOpen] = useState(false);
     const disabledDate: DatePickerProps["disabledDate"] = (current) => {
         return current && current > dayjs().endOf("day");
@@ -248,6 +265,7 @@ export default function Sessions() {
                                     session={a}
                                     sessionDateEvent={record}
                                     attendee={row}
+                                    groupType={groupType}
                                 />
                             );
                         },

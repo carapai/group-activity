@@ -1,5 +1,6 @@
 import { OrgUnit } from "@/interfaces";
 import { TreeSelect } from "antd";
+import { useState } from "react";
 
 export default function OrgUnitTreeSelect({
     organisationUnits,
@@ -10,6 +11,15 @@ export default function OrgUnitTreeSelect({
     value: string;
     onChange: (newValue: string) => void;
 }) {
+    const [treeData, setTreeData] = useState<OrgUnit[]>(organisationUnits);
+
+    const onSearch = (value: string) => {
+        setTreeData(() =>
+            organisationUnits.filter((ou) =>
+                String(ou.title).toLowerCase().includes(value.toLowerCase()),
+            ),
+        );
+    };
     return (
         <TreeSelect
             showSearch
@@ -19,8 +29,10 @@ export default function OrgUnitTreeSelect({
             placeholder="Please select"
             allowClear
             onChange={onChange}
-            treeData={organisationUnits}
-            treeDataSimpleMode={{ pId: "parent", id: "key" }}
+            treeData={treeData}
+            treeDataSimpleMode={true}
+            onSearch={onSearch}
+            filterTreeNode={false}
         />
     );
 }

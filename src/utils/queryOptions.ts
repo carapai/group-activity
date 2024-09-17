@@ -7,7 +7,6 @@ import {
     Instances,
     OptionGroup,
     OrgUnit,
-    OrgUnits,
     Program,
     Relationship,
     Relationships,
@@ -44,10 +43,25 @@ const fetchOrganisationUnits = async (orgUnit: string) => {
         let size = 1;
         let all: OrgUnit[] = [];
         while (size > 0) {
-            const data = await getDHIS2Resource<OrgUnits | OrgUnit>({
+            const data = await getDHIS2Resource<
+                | {
+                      id: string;
+                      name: string;
+                      leaf: boolean;
+                      parent: { id: string };
+                  }
+                | {
+                      organisationUnits: Array<{
+                          id: string;
+                          name: string;
+                          leaf: boolean;
+                          parent: { id: string };
+                      }>;
+                  }
+            >({
                 resource: `organisationUnits/${orgUnit}.json`,
                 params: {
-                    fields: "id~rename(key),name~rename(title),leaf~rename(isLeaf),parent",
+                    fields: "id,name,leaf,parent",
                     page: String(page),
                     includeDescendants: "true",
                     pageSize: "500",
@@ -55,19 +69,33 @@ const fetchOrganisationUnits = async (orgUnit: string) => {
             });
 
             if ("organisationUnits" in data) {
-                all = all.concat(data.organisationUnits);
+                all = all.concat(
+                    data.organisationUnits.map(({ id, name, leaf, parent }) => {
+                        let current: OrgUnit = {
+                            id,
+                            title: name,
+                            isLeaf: leaf,
+                            key: id,
+                            value: id,
+                        };
+
+                        if (parent && parent.id) {
+                            current = {
+                                ...current,
+                                pId: parent.id,
+                            };
+                        }
+                        return current;
+                    }),
+                );
                 page += 1;
             } else {
                 size = 0;
             }
         }
-        const processedAll = all.map((a) => {
-            if (typeof a.parent === "object")
-                return { ...a, parent: a.parent.id, value: String(a.key) };
-            return { ...a, value: String(a.key) };
-        });
-        await db.organisations.bulkPut(processedAll);
-        return processedAll;
+
+        await db.organisations.bulkPut(all);
+        return all;
     }
 };
 

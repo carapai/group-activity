@@ -2,10 +2,11 @@ import type { TreeDataNode } from "antd";
 import { IndexableType, Table } from "dexie";
 
 export interface OrgUnit extends TreeDataNode {
-    parent: { id: string } | string;
-    path?: string;
-    value?: string;
-    id?: string;
+    pId?: string;
+    value: string;
+    id: string;
+    title: string;
+    key: string;
     children?: OrgUnit[];
 }
 export type OrgUnits = {
