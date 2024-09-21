@@ -13,6 +13,7 @@ import {
     SearchCriteria,
 } from "@/interfaces";
 import { queryOptions } from "@tanstack/react-query";
+import { IndexableType, Table } from "dexie";
 import { fromPairs, isEmpty } from "lodash";
 import { getDHIS2Resource } from "./dhis2";
 
@@ -30,73 +31,6 @@ export const sessions: Record<string, string> = {
     "No means No sessions (Boys) New Curriculum": "TIObJloCVdC",
     "No means No sessions (Girls)": "okgcyLQNVFe",
     ECD: "QHaULS891IF",
-};
-
-const fetchOrganisationUnits = async (orgUnit: string) => {
-    const totalIn = await db.organisations.count();
-    if (totalIn > 0) {
-        const units = await db.organisations.toArray();
-        return units;
-    } else {
-        await db.currentOu.put({ id: 1, value: orgUnit });
-        let page = 1;
-        let size = 1;
-        let all: OrgUnit[] = [];
-        while (size > 0) {
-            const data = await getDHIS2Resource<
-                | {
-                      id: string;
-                      name: string;
-                      leaf: boolean;
-                      parent: { id: string };
-                  }
-                | {
-                      organisationUnits: Array<{
-                          id: string;
-                          name: string;
-                          leaf: boolean;
-                          parent: { id: string };
-                      }>;
-                  }
-            >({
-                resource: `organisationUnits/${orgUnit}.json`,
-                params: {
-                    fields: "id,name,leaf,parent",
-                    page: String(page),
-                    includeDescendants: "true",
-                    pageSize: "500",
-                },
-            });
-
-            if ("organisationUnits" in data) {
-                all = all.concat(
-                    data.organisationUnits.map(({ id, name, leaf, parent }) => {
-                        let current: OrgUnit = {
-                            id,
-                            title: name,
-                            isLeaf: leaf,
-                            key: id,
-                            value: id,
-                        };
-
-                        if (parent && parent.id) {
-                            current = {
-                                ...current,
-                                pId: parent.id,
-                            };
-                        }
-                        return current;
-                    }),
-                );
-                page += 1;
-            } else {
-                size = 0;
-            }
-        }
-
-        await db.organisations.bulkPut(all);
-        return all;
-    }
 };
 
 const getApps = async () => {
@@ -118,32 +52,20 @@ const getApps = async () => {
     }
     return [];
 };
-
-export const firstQueryOptions = queryOptions({
-    queryKey: ["first"],
-    queryFn: async () => {
-        const { dataViewOrganisationUnits } = await getDHIS2Resource<{
-            dataViewOrganisationUnits: Array<OrgUnit>;
-        }>({
-            resource: "me.json",
-            params: {
-                fields: "dataViewOrganisationUnits[id~rename(key),name~rename(title),leaf]",
-            },
-        });
-
-        return String(dataViewOrganisationUnits[0].key);
-    },
-});
-
 export const initialQueryOptions = queryOptions({
     queryKey: ["initial"],
     queryFn: async () => {
-        const { dataViewOrganisationUnits } = await getDHIS2Resource<{
-            dataViewOrganisationUnits: Array<OrgUnit>;
+        const { organisationUnits } = await getDHIS2Resource<{
+            organisationUnits: Array<{
+                id: string;
+                name: string;
+                leaf: boolean;
+                parent: { id: string };
+            }>;
         }>({
             resource: "me.json",
             params: {
-                fields: "dataViewOrganisationUnits[id~rename(key),name~rename(title),leaf]",
+                fields: "organisationUnits[id,name,leaf,parent]",
             },
         });
         const { programs } = await getDHIS2Resource<{
@@ -169,12 +91,28 @@ export const initialQueryOptions = queryOptions({
                 paging: "false",
             },
         });
-        const organisations = await fetchOrganisationUnits(
-            String(dataViewOrganisationUnits[0].key),
-        );
+
+        const units = organisationUnits.map(({ id, name, leaf, parent }) => {
+            let current: OrgUnit = {
+                id,
+                title: name,
+                isLeaf: leaf,
+                value: id,
+                key: id,
+            };
+
+            if (parent && parent.id) {
+                current = {
+                    ...current,
+                    pId: parent.id,
+                };
+            }
+            return current;
+        });
+        await db.organisations.bulkPut(units);
+
         await db.optionGroups.bulkPut(optionGroups);
-        const unit = await db.currentOu.get({ id: 1 });
-        return { optionGroups, organisations, programs, ou: unit?.value ?? "" };
+        return { optionGroups, programs, ou: units[0].value };
     },
 });
 
@@ -492,6 +430,43 @@ export const instancesSearchQueryOptions = ({
                 }),
             );
             return { processed, total };
+        },
+    });
+};
+
+export const orgUnitQueryOptions = (
+    orgUnit: string,
+    table: Table<OrgUnit, IndexableType>,
+) => {
+    return queryOptions({
+        queryKey: ["organisations", orgUnit],
+        queryFn: async () => {
+            const { children } = await getDHIS2Resource<{
+                children: Array<{
+                    id: string;
+                    name: string;
+                    leaf: boolean;
+                }>;
+            }>({
+                resource: `organisationUnits/${orgUnit}`,
+                params: {
+                    fields: "children[id,name,leaf]",
+                },
+            });
+
+            const organisationUnits = children.map(({ id, name, leaf }) => {
+                const current: OrgUnit = {
+                    id,
+                    title: name,
+                    isLeaf: leaf,
+                    value: id,
+                    key: id,
+                    pId: orgUnit,
+                };
+                return current;
+            });
+            await table.bulkPut(organisationUnits);
+            return "Done";
         },
     });
 };

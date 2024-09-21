@@ -6,9 +6,11 @@ import { clean, cleanAndSingularize, generateInstance } from "@/utils/utils";
 import { useLoaderData, useNavigate, useSearch } from "@tanstack/react-router";
 import type { TableProps } from "antd";
 import { Breadcrumb, Button, Divider, Modal, Table } from "antd";
+import dayjs from "dayjs";
 import React, { useCallback, useMemo, useState } from "react";
 import RegistrationForm from "./RegistrationForm";
-import dayjs from "dayjs";
+
+import { LeftOutlined, RightOutlined } from "@ant-design/icons";
 
 const TrackedEntities = ({ program }: { program: Program }) => {
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -22,7 +24,7 @@ const TrackedEntities = ({ program }: { program: Program }) => {
     } = useSearch({
         from: "/tracker/$program/instances",
     });
-    const { ou, trackedEntityType } = useSearch({
+    const { ou, ph, trackedEntityType } = useSearch({
         from: "/tracker/$program",
     });
     const navigate = useNavigate({ from: "/tracker/$program/instances" });
@@ -200,54 +202,75 @@ const TrackedEntities = ({ program }: { program: Program }) => {
         setIsModalOpen(true);
     }, [ou, trackedEntityType]);
 
-    const edit = useCallback(async (trackedEntity: DisplayInstance) => {
-        if (trackedEntity) {
-            await db.instances.clear();
-            await db.instances.put(trackedEntity);
-            setIsModalOpen(true);
-        }
-    }, []);
+    // const edit = useCallback(async (trackedEntity: DisplayInstance) => {
+    //     if (trackedEntity) {
+    //         await db.instances.clear();
+    //         await db.instances.put(trackedEntity);
+    //         setIsModalOpen(true);
+    //     }
+    // }, []);
 
     const handleTableChange = useCallback(
-        (pagination: any) => {
+        (page: number, pageSize: number) => {
             navigate({
                 search: (s) => {
-                    if (pagination.pageSize !== currentPageSize) {
+                    if (pageSize !== currentPageSize) {
                         return {
                             ...s,
                             page: 1,
-                            pageSize: pagination.pageSize,
+                            pageSize,
                         };
                     }
-                    return { ...s, page: pagination.current };
+                    return {
+                        ...s,
+                        page,
+                        pageSize: currentPageSize,
+                    };
                 },
             });
         },
-        [navigate, currentPageSize],
+        [page, currentPageSize],
     );
 
-    const actionColumn: TableProps<DisplayInstance>["columns"] = useMemo<
-        TableProps<DisplayInstance>["columns"]
-    >(
-        () => [
-            {
-                title: "Actions",
-                dataIndex: "actions",
-                key: "actions",
-                width: 80,
-                fixed: "right",
-                render: (_: any, row: DisplayInstance) => (
-                    <Button onClick={() => edit(row)}>Edit</Button>
-                ),
-            },
-        ],
-        [edit],
-    );
+    // const actionColumn: TableProps<DisplayInstance>["columns"] = useMemo<
+    //     TableProps<DisplayInstance>["columns"]
+    // >(
+    //     () => [
+    //         {
+    //             title: "Actions",
+    //             dataIndex: "actions",
+    //             key: "actions",
+    //             width: 80,
+    //             fixed: "right",
+    //             render: (_: any, row: DisplayInstance) => (
+    //                 <Button onClick={() => edit(row)}>Edit</Button>
+    //             ),
+    //         },
+    //     ],
+    //     [edit],
+    // );
+
+    console.log(ph);
 
     return (
         <div className="p-2 flex flex-col gap-3">
             <div className="flex flex-row items-center justify-between">
-                <Breadcrumb items={[{ title: clean(program.name) }]} />
+                <div className="flex gap-3 flex-row items-center">
+                    <Button
+                        onClick={() =>
+                            navigate({ search: (s) => ({ ...s, ph: !s.ph }) })
+                        }
+                        type="text"
+                        icon={
+                            ph === undefined || ph === false ? (
+                                <LeftOutlined />
+                            ) : (
+                                <RightOutlined />
+                            )
+                        }
+                    />
+                    <Breadcrumb items={[{ title: clean(program.name) }]} />
+                </div>
                 <Button onClick={addActivity} disabled={isDisabled}>
                     {`Add ${cleanAndSingularize(program.name)}`}
                 </Button>
@@ -256,7 +279,7 @@ const TrackedEntities = ({ program }: { program: Program }) => {
                 scroll={{ x: "max-content" }}
                 bordered
                 style={{ whiteSpace: "nowrap" }}
-                columns={[...columns, ...(actionColumn ?? [])]}
+                columns={columns}
                 dataSource={processed}
                 rowKey="trackedEntity"
                 rowSelection={{

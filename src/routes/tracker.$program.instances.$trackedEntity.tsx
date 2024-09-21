@@ -3,14 +3,15 @@ import Beneficiaries from "@/components/Beneficiaries";
 import TrackedEntity from "@/components/TrackedEntity";
 import { EventSearchSchema } from "@/schemas/search";
 import { trackedEntityQueryOptions } from "@/utils/queryOptions";
+import { LeftOutlined, RightOutlined } from "@ant-design/icons";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import {
     createFileRoute,
     useNavigate,
     useParams,
+    useSearch,
 } from "@tanstack/react-router";
-
-import useKeyboardShortcut from "use-keyboard-shortcut";
+import { Button } from "antd";
 
 export const Route = createFileRoute(
     "/tracker/$program/instances/$trackedEntity",
@@ -35,36 +36,47 @@ function TrackedEntityComponent() {
         from: "/tracker/$program/instances/$trackedEntity",
     });
 
+    const { th } = useSearch({
+        from: "/tracker/$program/instances/$trackedEntity",
+    });
     useSuspenseQuery(trackedEntityQueryOptions({ program, trackedEntity }));
 
     const navigate = useNavigate({ from: Route.fullPath });
 
-    useKeyboardShortcut(
-        ["Control", "T"],
-        () => navigate({ search: (s) => ({ ...s, th: !s.th }) }),
-        {
-            overrideSystem: false,
-            ignoreInputFields: false,
-            repeatOnHold: true,
-        },
-    );
-
-    if (program === "IXxHJADVCkb") return <ActivityDetails />;
-    if (program === "azl3du5TrAR")
-        return (
-            <TrackedEntity
-                additional={{
-                    title: "Members",
-                    component: (
-                        <Beneficiaries
-                            title="Add Members"
-                            modalTitle="Adding Members"
-                            currentIsFrom={false}
-                            relationshipType="MKS09h3wi7J"
-                        />
-                    ),
-                }}
+    return (
+        <div className="flex flex-col gap-3">
+            <Button
+                onClick={() =>
+                    navigate({ search: (s) => ({ ...s, th: !s.th }) })
+                }
+                type="text"
+                icon={
+                    th === undefined || th === false ? (
+                        <LeftOutlined />
+                    ) : (
+                        <RightOutlined />
+                    )
+                }
             />
-        );
-    return <TrackedEntity />;
+            {program === "IXxHJADVCkb" && <ActivityDetails />}
+            {program === "azl3du5TrAR" && (
+                <TrackedEntity
+                    additional={{
+                        title: "Members",
+                        component: (
+                            <Beneficiaries
+                                title="Add Members"
+                                modalTitle="Adding Members"
+                                currentIsFrom={false}
+                                relationshipType="MKS09h3wi7J"
+                            />
+                        ),
+                    }}
+                />
+            )}
+            {!["IXxHJADVCkb", "azl3du5TrAR"].includes(program) && (
+                <TrackedEntity />
+            )}
+        </div>
+    );
 }

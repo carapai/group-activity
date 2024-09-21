@@ -1,4 +1,3 @@
-import { db } from "@/db";
 import { initialQueryOptions } from "@/utils/queryOptions";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import {
@@ -7,7 +6,6 @@ import {
     Outlet,
     useSearch,
 } from "@tanstack/react-router";
-import { useLiveQuery } from "dexie-react-hooks";
 
 import {
     ResizableHandle,
@@ -15,6 +13,7 @@ import {
     ResizablePanelGroup,
 } from "@/components/ui/resizable";
 import { z } from "zod";
+import { clean } from "@/utils/utils";
 
 export const Route = createFileRoute("/tracker")({
     component: TrackerComponent,
@@ -27,36 +26,45 @@ export const Route = createFileRoute("/tracker")({
 
 function TrackerComponent() {
     const {
-        data: { programs },
+        data: { programs, ou },
     } = useSuspenseQuery(initialQueryOptions);
 
-    const ou = useLiveQuery(() => db.currentOu.where({ id: 1 }).first());
     const { ph } = useSearch({ from: Route.fullPath });
 
     if (ph === undefined || ph === false)
         return (
             <ResizablePanelGroup direction="horizontal">
                 <ResizablePanel defaultSize={10}>
-                    {programs.map(({ id, name, trackedEntityType }) => {
-                        return (
-                            <div key={id}>
-                                <Link
-                                    to="/tracker/$program/instances"
-                                    className={`block py-2 px-3 text-blue-700`}
-                                    activeProps={{ className: `font-bold` }}
-                                    params={{ program: id }}
-                                    search={{
-                                        ou: ou?.value ?? "",
-                                        page: 1,
-                                        pageSize: 10,
-                                        trackedEntityType:
-                                            trackedEntityType?.id,
-                                    }}
-                                >
-                                    {name}
-                                </Link>
-                            </div>
-                        );
+                    {programs.flatMap(({ id, name, trackedEntityType }) => {
+                        if (["azl3du5TrAR", "IXxHJADVCkb"].indexOf(id) !== -1) {
+                            return (
+                                <div key={id}>
+                                    <Link
+                                        to="/tracker/$program/instances"
+                                        className={`block py-2 px-3 text-blue-700`}
+                                        activeProps={{
+                                            className: `font-bold`,
+                                        }}
+                                        activeOptions={{
+                                            exact: false,
+                                        }}
+                                        params={{
+                                            program: id,
+                                        }}
+                                        search={{
+                                            ou,
+                                            page: 1,
+                                            pageSize: 10,
+                                            trackedEntityType:
+                                                trackedEntityType?.id,
+                                        }}
+                                    >
+                                        {clean(name)}
+                                    </Link>
+                                </div>
+                            );
+                        }
+                        return [];
                     })}
                 </ResizablePanel>
                 <ResizableHandle withHandle />

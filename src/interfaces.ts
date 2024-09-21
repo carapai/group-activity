@@ -6,7 +6,6 @@ export interface OrgUnit extends TreeDataNode {
     value: string;
     id: string;
     title: string;
-    key: string;
     children?: OrgUnit[];
 }
 export type OrgUnits = {
